@@ -25,17 +25,37 @@ async function main() {
         process.exit(1);
     }
 
-    console.log(`\n> Cloning PSQLCarbon into ${targetPath}...`);
-    execSync(`git clone https://github.com/n-for-all/psqlcarbon.git "${targetDirName}"`, { stdio: 'inherit' });
-    
-    process.chdir(targetPath);
-
-    console.log("\n> Installing dependencies...");
-    execSync(`npm install`, { stdio: 'inherit' });
-
     console.log("\n=== Configuration ===");
-    const username = await question("Admin Username: ");
-    const password = await question("Admin Password: ");
+    let username = "";
+    while (true) {
+        username = await question("Admin Username: ");
+        if (!username || username.length <= 3) {
+            console.log("Error: Username must be longer than 3 characters.");
+        } else if (!/^[a-zA-Z0-9_.-]*$/.test(username)) {
+            console.log("Error: Username can only contain letters, numbers, _, ., and -.");
+        } else {
+            break;
+        }
+    }
+
+    let password = "";
+    while (true) {
+        password = await question("Admin Password: ");
+        if (password.length < 6) {
+            console.log("Error: Password must be at least 6 characters long.");
+        } else if (!/[A-Z]/.test(password)) {
+            console.log("Error: Password must contain at least one uppercase letter.");
+        } else if (!/[a-z]/.test(password)) {
+            console.log("Error: Password must contain at least one lowercase letter.");
+        } else if (!/[0-9]/.test(password)) {
+            console.log("Error: Password must contain at least one number.");
+        } else if (!/[^a-zA-Z0-9]/.test(password)) {
+            console.log("Error: Password must contain at least one special character.");
+        } else {
+            break;
+        }
+    }
+
     const port = await question("Port (default 3000): ") || "3000";
     
     console.log("\n=== AI Settings ===");
@@ -46,6 +66,14 @@ async function main() {
         openAiBaseUrl = await question("OpenAI Base URL (default https://api.openai.com/v1): ") || "https://api.openai.com/v1";
         openAiModel = await question("OpenAI Model (default gpt-4o): ") || "gpt-4o";
     }
+
+    console.log(`\n> Cloning PSQLCarbon into ${targetPath}...`);
+    execSync(`git clone https://github.com/n-for-all/psqlcarbon.git "${targetDirName}"`, { stdio: 'inherit' });
+    
+    process.chdir(targetPath);
+
+    console.log("\n> Installing dependencies...");
+    execSync(`npm install`, { stdio: 'inherit' });
 
     console.log("\n> Setting up environment variables...");
     const secret = crypto.randomBytes(32).toString('hex');
