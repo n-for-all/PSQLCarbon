@@ -7,7 +7,7 @@ import * as dotenv from "dotenv";
 import child_process from "child_process";
 import chalk from "chalk";
 
-import packageJson from "../package.json" assert { type: "json" };
+import packageJson from "../package.json" with { type: "json" };
 
 const program = new Command();
 program.version(packageJson.version);

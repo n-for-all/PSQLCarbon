@@ -3,7 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 
 import bcrypt from "bcryptjs";
 import validator from "validator";
-import packageJson from "../package.json" assert { type: "json" };
+import packageJson from "../package.json" with { type: "json" };
 import appRoot from "app-root-path";
 import * as dotenv from "dotenv";
 import { join } from "path";
