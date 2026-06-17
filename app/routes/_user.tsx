@@ -114,22 +114,31 @@ export default function Layout() {
     const [isCreateDatabase, setIsCreateDatabase] = useState(false);
     const [isAiChatOpen, setIsAiChatOpen] = useState(false);
     const [chatWidth, setChatWidth] = useState(500);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         const savedIsOpen = localStorage.getItem("ai_chat_open");
-        if (savedIsOpen) setIsAiChatOpen(savedIsOpen === "true");
+        if (savedIsOpen === "true") {
+            setIsAiChatOpen(true);
+        }
         
         const savedWidth = localStorage.getItem("ai_chat_width");
-        if (savedWidth) setChatWidth(parseInt(savedWidth, 10));
+        if (savedWidth) {
+            setChatWidth(parseInt(savedWidth, 10));
+        }
+
+        setMounted(true);
     }, []);
 
     useEffect(() => {
+        if (!mounted) return;
         localStorage.setItem("ai_chat_open", String(isAiChatOpen));
-    }, [isAiChatOpen]);
+    }, [isAiChatOpen, mounted]);
 
     useEffect(() => {
+        if (!mounted) return;
         localStorage.setItem("ai_chat_width", String(chatWidth));
-    }, [chatWidth]);
+    }, [chatWidth, mounted]);
 
     const startResizing = React.useCallback((mouseDownEvent: React.MouseEvent) => {
         mouseDownEvent.preventDefault();

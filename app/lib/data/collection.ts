@@ -117,10 +117,27 @@ export class Collection {
         const { items, count } = await this._getItemsAndCount(query, queryOptions);
 
         const docs = items;
-        const columns: Array<string[]> = [];
-        
-        for (const i in items) {
-            columns.push(Object.keys(items[i]));
+        let docsColumns: string[] = [];
+        try {
+            const schemaRes = await this.pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = $1
+                ORDER BY ordinal_position;
+            `, [this.collectionName]);
+            if (schemaRes.rows.length > 0) {
+                docsColumns = schemaRes.rows.map(r => r.column_name);
+            }
+        } catch (e) {
+            console.error("Failed to fetch schema columns", e);
+        }
+
+        if (docsColumns.length === 0) {
+            const columns: Array<string[]> = [];
+            for (const i in items) {
+                columns.push(Object.keys(items[i]));
+            }
+            docsColumns = columns.flat().filter((value, index, arr) => arr.indexOf(value) === index);
         }
 
         // Pagination
@@ -155,7 +172,7 @@ export class Collection {
         const ctx = {
             title: this.collectionName,
             docs,
-            columns: columns.flat().filter((value, index, arr) => arr.indexOf(value) === index),
+            columns: docsColumns,
             count,
             stats: {
                 storageStats: {

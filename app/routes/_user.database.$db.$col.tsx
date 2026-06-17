@@ -141,14 +141,15 @@ const loadCollectionData = async ({ jsonQuery, request, params, withColumns = fa
     const mongo = await loadConnection(request);
     const collection = new Collection(mongo, params.db, params.col, config);
     const collectionData = await collection.viewCollection({ ...jsonQuery, ...pagination });
-    let columns = {};
     if (withColumns) {
+        let columns: any = {};
         let parsedColumns = await collection.getColumns();
-        parsedColumns.map((col) => {
+        parsedColumns.forEach((col) => {
             columns[col] = "";
         });
+        return { ...collectionData, documents: JSON.stringify(collectionData.docs), params, ...pagination, columns };
     }
-    return { ...collectionData, documents: JSON.stringify(collectionData.docs), params, ...pagination, columns };
+    return { ...collectionData, documents: JSON.stringify(collectionData.docs), params, ...pagination };
 };
 
 export const action: ActionFunction = async ({ request, params }) => {
@@ -383,7 +384,7 @@ export default function CollectionPage() {
 
     const isRaw = !!raw;
     const currentRows = isRaw ? raw.rows : documents;
-    const currentColumns = isRaw ? raw.columns : Object.keys(data.columns || {});
+    const currentColumns = isRaw ? raw.columns : (Array.isArray(data.columns) ? data.columns : Object.keys(data.columns || {}));
 
     let items: any = null;
     if (view == "grid") {

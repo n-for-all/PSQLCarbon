@@ -15,16 +15,11 @@
 
 <div align="center">
   <strong>
-  <h2>A web-based MongoDB admin interface written with Remix, Vite, TailwindCSS and Prisma</h2><br />
-  <a href="https://psqlcarbon.com">PSQLCarbon</a>: Similar to Mongo Express, MongoDB Compass, MongoUi...<br /><br />
+  <h2>A web-based PostgreSQL admin interface written with Remix, Vite, TailwindCSS and Prisma</h2><br />
+  <a href="https://psqlcarbon.com">PSQLCarbon</a>: A modern, AI-powered UI for your database.<br /><br />
   </strong>
-  PSQLCarbon offers database management for mongodb instances
+  PSQLCarbon offers powerful database management and AI features for PostgreSQL instances.
 </div> 
-
-<div class="flex" align="center">
-  <br />
-  <img alt="Instagram" src="https://storage.googleapis.com/ajaxy/psqlcarbon/logo-mongo.svg" height="48">
-</div>
 
 <p align="center">
   <br />
@@ -44,20 +39,20 @@
 
 -   Multiple Connections
 -   View/add/delete databases
--   View/add/delete collections
--   Use BSON data types in documents
+-   View/add/delete tables
+-   Use advanced PostgreSQL data types in records
 -   Mobile / Responsive
 -   Database blacklist/whitelist
 -   Custom CA/TLS/SSL and CA validation disabling
--   Supports replica sets and direct connection
+-   Direct PostgreSQL connection support
 -   Includes PM2 config
 
 ## Road Map
-- [ ] Rename Collections 
-- [ ] View/add/update/delete documents
-- [ ] Export/Import documents
-- [ ] Export/Import collections
-- [ ] Preview audio/video/image assets in the document view
+- [ ] Rename Tables 
+- [ ] View/add/update/delete records
+- [ ] Export/Import records
+- [ ] Export/Import tables
+- [ ] Preview audio/video/image assets in the record view
 
 
 ## Development
@@ -125,7 +120,7 @@ You must be using https to login otherwise you need to add SECURE_COOKIE=0 to yo
 
 ## Usage (Docker)
 
-Make sure you have a running [MongoDB container](https://hub.docker.com/_/mongo/) on a Docker network (`--network some-network` below) with `--name` or `--network-alias` set to `mongo` and then create the user
+Make sure you have a running [PostgreSQL container](https://hub.docker.com/_/postgres/) on a Docker network (`--network some-network` below) with `--name` or `--network-alias` set to `postgres` and then create the user
 
 **Use [the Docker Hub image](https://hub.docker.com/_/psqlcarbon/):**
 
@@ -160,7 +155,7 @@ The default port exposed from the container is 3000, so visit `http://localhost:
 Doing manually:
 
 -   Git clone this repository
--   Create a new or use already created [MongoDB service](https://www.ibm.com/products/databases-for-mongodb)
+-   Create a new or use already created [PostgreSQL service](https://www.ibm.com/products/databases-for-postgresql)
 -   Change the file `examples/ibm-cloud/manifest.yml` to fit your IBM Cloud app and service environment
 
 Doing automatically:
