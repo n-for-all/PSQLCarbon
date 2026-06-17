@@ -1,0 +1,9 @@
+node_modules
+
+/.cache
+.env
+.history
+.DS_Store
+prisma/db.db
+prisma/db.db-journal
+./server/*
