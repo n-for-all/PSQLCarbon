@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 module.exports = {
 	apps: [
 		{
@@ -6,7 +8,7 @@ module.exports = {
 			watch: false,
 			args: "start",
 			env: {
-				PORT: 3000,
+				PORT: process.env.PORT || 3000,
 				NODE_ENV: "production",
 			},
 		},

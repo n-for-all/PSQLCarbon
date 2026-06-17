@@ -1,6 +1,6 @@
 {
 	"name": "psqlcarbon",
-	"version": "0.0.9",
+	"version": "1.0.0",
 	"private": false,
 	"sideEffects": false,
 	"type": "module",
@@ -16,7 +16,7 @@
 		"dev:remix": "remix vite:dev",
 		"prisma": "prisma generate && prisma db push",
 		"lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
-		"start": "NODE_OPTIONS=--trace-warnings remix-serve ./build/server/index.js",
+		"start": "NODE_OPTIONS=--trace-warnings dotenv -- remix-serve ./build/server/index.js",
 		"typecheck": "tsc",
 		"preinstall": "echo \"Welcome to PSQL Carbon\"",
 		"postinstall": "node console/install.js",

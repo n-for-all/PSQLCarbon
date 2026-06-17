@@ -55,6 +55,14 @@
 - [ ] Preview audio/video/image assets in the record view
 
 
+## Quick Start
+
+The fastest way to install and configure PSQLCarbon is by using our interactive installer. It will automatically download the app, install dependencies, set up your admin user, and configure your `.env` variables:
+
+```bash
+npx create-psqlcarbon-app@latest
+```
+
 ## Development
 
 To test or develop with the latest version (_master_ branch) you can download using this git repository:
