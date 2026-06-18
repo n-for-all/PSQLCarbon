@@ -302,10 +302,10 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                                 } else if (i % 3 === 2) {
                                                     const lang = parts[i - 1].toLowerCase();
                                                     const code = parts[i].trim();
-                                                    // Only allow execution for single SQL select-like queries
+                                                    // Allow execution for any single SQL query
                                                     const statements = code.split(';').map(s => s.trim()).filter(s => s.length > 0);
                                                     const isSingleStatement = statements.length === 1;
-                                                    const isSelectQuery = (lang === "sql" || lang === "postgresql" || lang === "postgres") && !checkIsModifying(code) && isSingleStatement;
+                                                    const isExecutableQuery = (lang === "sql" || lang === "postgresql" || lang === "postgres") && isSingleStatement;
 
                                                     renderedParts.push(
                                                         <div key={i} className="my-2 p-2 bg-neutral-100 rounded border border-neutral-200">
@@ -313,14 +313,14 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                                             <pre className="whitespace-pre-wrap font-mono text-xs mb-2 text-neutral-800">{code}</pre>
                                                             <div className="flex gap-2">
                                                                 <CopyTextButton size="sm" variant="outline" text={code}>Copy Code</CopyTextButton>
-                                                                {isSelectQuery && (
+                                                                {isExecutableQuery && (
                                                                     <Button 
                                                                         size="sm" 
                                                                         variant="secondary" 
                                                                         icon={<PlayIcon />} 
                                                                         onClick={() => handleExecuteInternal(code)}
                                                                     >
-                                                                        Use & Execute Query
+                                                                        Use Query
                                                                     </Button>
                                                                 )}
                                                             </div>

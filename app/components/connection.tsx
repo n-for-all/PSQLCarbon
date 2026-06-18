@@ -134,8 +134,12 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
             });
 
             setTimeout(() => {
-                onSuccess();
-                onClose();
+                if (fetcher.data?.redirect) {
+                    window.location.href = fetcher.data?.redirect;
+                } else {
+                    onSuccess();
+                    onClose();
+                }
             }, 2000);
         } else if (fetcher.data && fetcher.data.status == "error") {
             setDescription(fetcher.data.message || "");

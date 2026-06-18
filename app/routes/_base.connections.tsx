@@ -460,7 +460,7 @@ export default function Dashboard() {
                         }}>
                         Add Connection
                     </Button>
-                    {current && (
+                    {loaderData.current && (
                         <Button
                             size="sm"
                             variant={"outline"}
