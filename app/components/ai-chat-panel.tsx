@@ -4,6 +4,7 @@ import { Button } from "~/ui/button";
 import { ArrowRightIcon, DependabotIcon, PersonIcon, PlayIcon } from "@primer/octicons-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/ui/select";
+import { CopyTextButton } from "~/components/copy_text";
 
 interface ChatSession {
     id: string;
@@ -290,25 +291,45 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                     msg.content.startsWith("Error:") ? (
                                         <p className="whitespace-pre-wrap">{msg.content}</p>
                                     ) : (
-                                        msg.content.split(/```(?:sql)?\s*?\n?([\s\S]*?)```/gi).map((part, i) => {
-                                            if (i % 2 === 1) {
-                                                return (
-                                                    <div key={i} className="my-2 p-2 bg-neutral-100 rounded border border-neutral-200">
-                                                        <pre className="whitespace-pre-wrap font-mono text-xs mb-2 text-neutral-800">{part.trim()}</pre>
-                                                        <Button 
-                                                            size="sm" 
-                                                            variant="secondary" 
-                                                            icon={<PlayIcon />} 
-                                                            onClick={() => handleExecuteInternal(part.trim())}
-                                                        >
-                                                            Use & Execute Query
-                                                        </Button>
-                                                    </div>
-                                                );
+                                        (() => {
+                                            const parts = msg.content.split(/```(\w*)\s*\n([\s\S]*?)```/gi);
+                                            const renderedParts = [];
+                                            for (let i = 0; i < parts.length; i++) {
+                                                if (i % 3 === 0) {
+                                                    if (parts[i].trim()) {
+                                                        renderedParts.push(<p key={i} className="whitespace-pre-wrap mb-2">{parts[i].trim()}</p>);
+                                                    }
+                                                } else if (i % 3 === 2) {
+                                                    const lang = parts[i - 1].toLowerCase();
+                                                    const code = parts[i].trim();
+                                                    // Only allow execution for single SQL select-like queries
+                                                    const statements = code.split(';').map(s => s.trim()).filter(s => s.length > 0);
+                                                    const isSingleStatement = statements.length === 1;
+                                                    const isSelectQuery = (lang === "sql" || lang === "postgresql" || lang === "postgres") && !checkIsModifying(code) && isSingleStatement;
+
+                                                    renderedParts.push(
+                                                        <div key={i} className="my-2 p-2 bg-neutral-100 rounded border border-neutral-200">
+                                                            {lang && <div className="text-xs text-neutral-400 mb-1 uppercase tracking-wider font-semibold">{lang}</div>}
+                                                            <pre className="whitespace-pre-wrap font-mono text-xs mb-2 text-neutral-800">{code}</pre>
+                                                            <div className="flex gap-2">
+                                                                <CopyTextButton size="sm" variant="outline" text={code}>Copy Code</CopyTextButton>
+                                                                {isSelectQuery && (
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="secondary" 
+                                                                        icon={<PlayIcon />} 
+                                                                        onClick={() => handleExecuteInternal(code)}
+                                                                    >
+                                                                        Use & Execute Query
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
                                             }
-                                            if (!part.trim()) return null;
-                                            return <p key={i} className="whitespace-pre-wrap mb-2">{part.trim()}</p>;
-                                        })
+                                            return renderedParts;
+                                        })()
                                     )
                                 ) : msg.role === "system" ? (
                                     typeof msg.content === "string" ? (

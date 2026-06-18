@@ -32,7 +32,9 @@ const copyToClipboard = (text: string): Promise<void> => {
 
 export const Title: React.FC<TitleWithCopy> = ({ title, children, allowCopy = true }) => {
     const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
+    const handleCopy = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (!title) {
             return;
         }

@@ -54,7 +54,7 @@ export const CsvTable = ({ sort, rows, columns, allowEdit = false, onSort }: Csv
                                         <td className="px-4 py-2" key={key}>
                                             <div className="flex items-start gap-2 group/item">
                                                 <JsonTreeEditor autocompleteItems={[]} allowEdit={allowEdit} data={row[key]} />
-                                                <CopyText className="p-1 ml-auto opacity-0 group-hover/item:opacity-100 hover:bg-white" text={String(row[key])} />
+                                                <CopyText className="p-1 ml-auto opacity-0 group-hover/item:opacity-100 hover:bg-white" text={JSON.stringify(row[key], null, 2)} />
                                             </div>
                                         </td>
                                     );
