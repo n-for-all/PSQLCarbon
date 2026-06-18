@@ -194,7 +194,7 @@ export const action: ActionFunction = async ({ request }) => {
                 whitelist,
                 blacklist,
             });
-            await addUserDbConnection(userId, {
+            const newConnection = await addUserDbConnection(userId, {
                 name,
                 connectionString,
                 tls,
@@ -207,9 +207,17 @@ export const action: ActionFunction = async ({ request }) => {
                 blacklist,
             });
 
+            const session = await getUserSession(request);
+            session.set("connection", newConnection);
+
             return Response.json({
                 status: "success",
                 message: "Connection added successfully",
+                redirect: "/",
+            }, {
+                headers: {
+                    "Set-Cookie": await commitSession(session),
+                },
             });
         } catch (e: any) {
             return Response.json({
@@ -442,7 +450,7 @@ export default function Dashboard() {
                         </AccordionItem>
                     ))}
                 </Accordion>
-                <div className="mt-4">
+                <div className="flex gap-2 mt-4">
                     <Button
                         size="sm"
                         variant={"secondary"}
@@ -452,6 +460,16 @@ export default function Dashboard() {
                         }}>
                         Add Connection
                     </Button>
+                    {current && (
+                        <Button
+                            size="sm"
+                            variant={"outline"}
+                            onClick={() => {
+                                window.location.href = "/";
+                            }}>
+                            Return to Dashboard
+                        </Button>
+                    )}
                 </div>
             </div>
 

@@ -13,13 +13,38 @@ interface ButtonWithCopy {
     [x: string]: any;
 }
 
+const copyToClipboard = (text: string): Promise<void> => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand("copy");
+        } catch (err) {
+            console.error("Fallback copy failed", err);
+        }
+        document.body.removeChild(textArea);
+        resolve();
+    });
+};
+
 export const CopyText: React.FC<TitleWithCopy> = ({ text, className, iconClassName }) => {
     const [copied, setCopied] = useState(false);
-    const handleCopy = () => {
+    const handleCopy = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (!text) {
             return;
         }
-        navigator.clipboard.writeText(String(text)).then(() => {
+        copyToClipboard(String(text)).then(() => {
             setCopied(true);
             setTimeout(() => {
                 setCopied(false);
@@ -35,12 +60,13 @@ export const CopyText: React.FC<TitleWithCopy> = ({ text, className, iconClassNa
 };
 export const CopyTextButton: React.FC<ButtonWithCopy> = ({ text, children, ...rest }) => {
     const [copied, setCopied] = useState(false);
-    const handleCopy = (e) => {
+    const handleCopy = (e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!text) {
             return;
         }
-        navigator.clipboard.writeText(String(text)).then(() => {
+        copyToClipboard(String(text)).then(() => {
             setCopied(true);
             setTimeout(() => {
                 setCopied(false);

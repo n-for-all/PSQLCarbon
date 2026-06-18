@@ -7,13 +7,36 @@ interface TitleWithCopy {
     allowCopy?: boolean;
 }
 
+const copyToClipboard = (text: string): Promise<void> => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand("copy");
+        } catch (err) {
+            console.error("Fallback copy failed", err);
+        }
+        document.body.removeChild(textArea);
+        resolve();
+    });
+};
+
 export const Title: React.FC<TitleWithCopy> = ({ title, children, allowCopy = true }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = () => {
         if (!title) {
             return;
         }
-        navigator.clipboard.writeText(title).then(() => {
+        copyToClipboard(title).then(() => {
             setCopied(true);
             setTimeout(() => {
                 setCopied(false);
