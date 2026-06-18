@@ -88,7 +88,7 @@ export async function updateUserDbConnection(userId, connectionId, connection: O
 
 const cookie = {
 	name: "psqlcarbon_session",
-	secure: typeof process.env.SECURE_COOKIE != "undefined" ? !!(process.env.SECURE_COOKIE == '1') : process.env.NODE_ENV === "production",
+	secure: process.env.SECURE_COOKIE === "1",
 	secrets: [sessionSecret],
 	path: "/",
 	maxAge: 60 * 60 * 24 * 30,
