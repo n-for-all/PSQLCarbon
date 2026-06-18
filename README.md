@@ -33,7 +33,7 @@
   <img src="https://storage.googleapis.com/ajaxy/psqlcarbon/psqlcarbon-screenshot.jpg?x32" width="100%" />
 </p>
 
-[![npm version](https://badge.fury.io/js/psqlcarbon.svg)](https://www.npmjs.com/package/psqlcarbon) [![npm](https://img.shields.io/npm/dm/psqlcarbon.svg)](https://www.npmjs.com/package/psqlcarbon) [![GitHub stars](https://img.shields.io/github/stars/n-for-all/psqlcarbon.svg)](https://github.com/n-for-all/psqlcarbon/stargazers) [![Known Vulnerabilities](https://snyk.io/test/npm/name/badge.svg)](https://snyk.io/test/npm/psqlcarbon)
+[![npm version](https://badge.fury.io/js/psqlcarbon.svg)](https://www.npmjs.com/package/create-psqlcarbon-app) [![npm](https://img.shields.io/npm/dm/psqlcarbon.svg)](https://www.npmjs.com/package/create-psqlcarbon-app) [![GitHub stars](https://img.shields.io/github/stars/n-for-all/psqlcarbon.svg)](https://github.com/n-for-all/psqlcarbon/stargazers) [![Known Vulnerabilities](https://snyk.io/test/npm/name/badge.svg)](https://snyk.io/test/npm/psqlcarbon)
 
 ## Features
 
