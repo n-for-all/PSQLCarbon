@@ -370,9 +370,9 @@ export default function Layout() {
                 onClose={() => {
                     setIsCreateDatabase(false);
                 }}
-                onSuccess={(dbName, collectionName) => {
+                onSuccess={(dbName) => {
                     setIsCreateDatabase(false);
-                    navigate(`/database/${dbName}/${collectionName}`, { replace: true });
+                    navigate(`/database/${dbName}`, { replace: true });
                 }}
             />
         </>

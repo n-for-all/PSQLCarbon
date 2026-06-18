@@ -22,6 +22,9 @@ export const action: ActionFunction = async ({ request }) => {
         // Query the schema
         const session = await (await import("~/utils/session.server")).getUserSession(request);
         const connection = session.get("connection");
+        if (!connection) {
+            return Response.json({ message: "No connection selected" }, { status: 400 });
+        }
         const mongo = await (await import("~/lib/db")).default(connection);
         const pool = mongo.getPool(db);
         let schemaInfo = "";

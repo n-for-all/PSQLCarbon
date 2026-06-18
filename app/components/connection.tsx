@@ -86,7 +86,6 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
     const [state, setState] = useState(
         initialData ?? {
             id: undefined,
-            allowDiskUse: true,
             name: "",
             connectionString: "postgresql://postgres:postgres@localhost:5432/postgres",
             tls: false,
@@ -112,7 +111,6 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
         setState(
             initialData ?? {
                 id: undefined,
-                allowDiskUse: true,
                 name: "",
                 connectionString: "postgresql://postgres:postgres@localhost:5432/postgres",
                 tls: false,
@@ -324,14 +322,7 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
                             }}
                         />
 
-                        <Checkbox
-                            labelText="Allow Disk Use"
-                            helperText="set to true to remove the limit of 100 MB of RAM on each aggregation pipeline stage"
-                            checked={state.allowDiskUse}
-                            onChange={(checked) => {
-                                setState({ ...state, allowDiskUse: checked });
-                            }}
-                        />
+
                     </div>
                 </Form>
             </Modal>

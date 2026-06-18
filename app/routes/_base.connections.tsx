@@ -42,7 +42,6 @@ export const loader: LoaderFunction = async ({ request }) => {
 };
 
 const validate = ({
-    allowDiskUse,
     name,
     connectionString,
     tls,
@@ -155,7 +154,6 @@ export const action: ActionFunction = async ({ request }) => {
         }
     } else if (jsonQuery.add) {
         const {
-            allowDiskUse,
             name,
             connectionString,
             tls,
@@ -195,7 +193,6 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
-                allowDiskUse,
             });
             await addUserDbConnection(userId, {
                 name,
@@ -208,7 +205,6 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
-                allowDiskUse,
             });
 
             return Response.json({
@@ -254,7 +250,6 @@ export const action: ActionFunction = async ({ request }) => {
     } else if (jsonQuery.edit) {
         const {
             id,
-            allowDiskUse,
             name,
             connectionString,
             tls,
@@ -302,7 +297,6 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
-                allowDiskUse,
             });
             await updateUserDbConnection(userId, id, {
                 name,
@@ -315,7 +309,6 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
-                allowDiskUse,
             });
 
             return Response.json({
@@ -404,9 +397,7 @@ export default function Dashboard() {
                                     <div className="flex py-2 text-sm border-b border-solid border-neutral-200">
                                         <span>Max Pool Size:</span> <span className="ml-2">{connection.maxPoolSize}</span>
                                     </div>
-                                    <div className="flex py-2 text-sm border-b border-solid border-neutral-200">
-                                        <span>Allow Disk Use:</span> <span className="ml-2">{connection.allowDiskUse ? "Yes" : "No"}</span>
-                                    </div>
+
                                     <div className="flex flex-col py-2 text-sm border-b border-solid border-neutral-200">
                                         <span>Whitelist:</span> <span className="ml-2">{connection.whitelist}</span>
                                     </div>

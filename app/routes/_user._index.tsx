@@ -1,4 +1,4 @@
-import { LoaderFunction } from "@remix-run/node";
+import { LoaderFunction, redirect } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import db, { ConnectionData } from "~/lib/db";
 import { Table, TableBody, TableCell, TableRow } from "~/ui/table";
@@ -7,6 +7,9 @@ import { getUserSession } from "~/utils/session.server";
 export const loader: LoaderFunction = async ({ request }) => {
     const session = await getUserSession(request);
     const connection = session.get("connection");
+    if (!connection) {
+        return redirect("/connections");
+    }
 
     let mongo: ConnectionData;
 

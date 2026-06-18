@@ -1,4 +1,4 @@
-import { ActionFunction, LoaderFunction } from "@remix-run/node";
+import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import db, { ConnectionData } from "~/lib/db";
 import { getUserSession } from "~/utils/session.server";
@@ -17,6 +17,10 @@ import { Input, SearchInput } from "~/ui/input";
 export const loader: LoaderFunction = async ({ request, params }) => {
     const session = await getUserSession(request);
     const connection = session.get("connection");
+    
+    if (!connection) {
+        return redirect("/connections");
+    }
 
     let mongo: ConnectionData;
 
@@ -37,16 +41,13 @@ export const loader: LoaderFunction = async ({ request, params }) => {
     }
 };
 
-const validate = ({ dbName, collectionName }) => {
+const validate = ({ dbName }) => {
     const errors = {};
 
     if (!dbName || dbName.trim() == "" || !isValidDatabaseName(dbName)) {
         errors["dbName"] = "The database name is invalid";
     }
 
-    if (!collectionName || collectionName.trim() == "" || !isValidCollectionName(collectionName)) {
-        errors["collectionName"] = "The collection name is invalid";
-    }
     return errors;
 };
 export const action: ActionFunction = async ({ request }) => {
@@ -60,20 +61,23 @@ export const action: ActionFunction = async ({ request }) => {
         if (jsonQuery.create) {
             const errors = validate(jsonQuery.create);
             if (Object.keys(errors).length > 0) {
-                return Response.json({ status: "error", message: "Please specify a valid name for the database and the collection to be created", errors }, { status: 500 });
+                return Response.json({ status: "error", message: "Please specify a valid name for the database to be created", errors }, { status: 500 });
             }
 
-            const { dbName, collectionName } = jsonQuery.create;
+            const { dbName } = jsonQuery.create;
 
             const session = await getUserSession(request);
             const connection = session.get("connection");
+            if (!connection) {
+                return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
+            }
 
             let mongo: ConnectionData;
 
             mongo = await db(connection);
 
             const database = new Database(mongo, config);
-            await database.createDatabase(dbName, collectionName);
+            await database.createDatabase(dbName);
 
             return Response.json({ status: "success", message: "Database is created" }, { status: 200 });
         } else if (jsonQuery.delete) {
@@ -85,6 +89,9 @@ export const action: ActionFunction = async ({ request }) => {
 
             const session = await getUserSession(request);
             const connection = session.get("connection");
+            if (!connection) {
+                return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
+            }
 
             let mongo: ConnectionData;
 

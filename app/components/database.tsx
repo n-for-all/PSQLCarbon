@@ -1,19 +1,17 @@
 import { Form, useFetcher } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { Input } from "@ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/ui/dialog";
-import { Button } from "~/ui/button";
 import Modal from "~/ui/modal";
 import { toast } from "~/ui/hooks/use-toast";
 
 interface DatabaseAddModalProps {
     open: boolean;
     onClose: () => void;
-    onSuccess: (dbName: string, collectionName: string) => void;
+    onSuccess: (dbName: string) => void;
 }
 
 export const DatabaseAddModal = ({ open, onClose, onSuccess }: DatabaseAddModalProps) => {
-    const [state, setState] = useState({ dbName: "", collectionName: "" });
+    const [state, setState] = useState({ dbName: "" });
 
     const [errors, setErrors] = useState({});
     const fetcher = useFetcher<{
@@ -31,7 +29,7 @@ export const DatabaseAddModal = ({ open, onClose, onSuccess }: DatabaseAddModalP
                 type: "background",
             });
             setTimeout(() => {
-                onSuccess(state.dbName.trim(), state.collectionName.trim());
+                onSuccess(state.dbName.trim());
                 onClose();
             }, 2000);
         } else if (fetcher.data && fetcher.data.status == "error") {
@@ -90,34 +88,7 @@ export const DatabaseAddModal = ({ open, onClose, onSuccess }: DatabaseAddModalP
                                 setState({ ...state, dbName: e.target.value });
                             }}
                         />
-                        <hr />
-                        <div>
-                            <Input
-                                id="collectionName"
-                                labelText="Table Name"
-                                autoComplete="new-password"
-                                type="text"
-                                required
-                                invalid={errors["collectionName"]}
-                                invalidText={errors["collectionName"]}
-                                helperText="You need to add a table to create the database"
-                                value={state.collectionName}
-                                onChange={(e) => {
-                                    setState({ ...state, collectionName: e.target.value });
-                                }}
-                            />
-                            <small className="block mt-4 mb-4 text-sm">
-                                <b>*</b>PostgreSQL will create a database with the specified table.{" "}
-                                <small>
-                                    <a
-                                        className="text-blue-500 hover:underline"
-                                        target="_blank"
-                                        href="https://www.postgresql.org/docs/current/manage-ag-createdb.html">
-                                        View more
-                                    </a>
-                                </small>
-                            </small>
-                        </div>
+
                     </div>
                 </Form>
             </Modal>

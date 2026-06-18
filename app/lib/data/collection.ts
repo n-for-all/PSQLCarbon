@@ -32,15 +32,14 @@ const converters = {
 };
 
 export class Collection {
-    allowDiskUse: boolean;
+
     config: Config;
     collectionName: string;
     pool: any;
     dbName: string;
 
-    constructor(connectionData: ConnectionData, dbName: string, collectionName: string, config: Config, allowDiskUse = true) {
+    constructor(connectionData: ConnectionData, dbName: string, collectionName: string, config: Config) {
         this.config = config;
-        this.allowDiskUse = allowDiskUse;
         this.pool = connectionData.getPool(dbName);
         this.collectionName = collectionName;
         this.dbName = dbName;

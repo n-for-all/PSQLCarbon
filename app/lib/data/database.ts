@@ -174,27 +174,17 @@ export class Database {
         };
     };
 
-    createDatabase = async (dbName: string, collectionName: string) => {
-        if (!isValidCollectionName(collectionName)) {
-            return Promise.reject(new Error(`The table name "${collectionName}" is invalid`));
-        }
-        
+    createDatabase = async (dbName: string) => {
         const defaultPool = this.connectionData.getPool();
         if (!defaultPool) return Promise.reject(new Error("No default database connection pool available"));
 
         try {
-            await defaultPool.query(`CREATE DATABASE "${dbName}"`);
+            return await defaultPool.query(`CREATE DATABASE "${dbName}"`);
         } catch (e: any) {
             if (e.code !== '42P04') { // 42P04 is duplicate_database
                 throw e;
             }
         }
-
-        const pool = this.connectionData.getPool(dbName);
-        if (!pool) return Promise.reject(new Error("No database connection pool available"));
-
-        const query = `CREATE TABLE IF NOT EXISTS "${collectionName}" (id SERIAL PRIMARY KEY)`;
-        return await pool.query(query);
     };
 
     deleteDatabase = async (dbName: string) => {

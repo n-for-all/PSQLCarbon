@@ -17,6 +17,9 @@ export const action: ActionFunction = async ({ request }) => {
 
         const session = await (await import("~/utils/session.server")).getUserSession(request);
         const connection = session.get("connection");
+        if (!connection) {
+            return Response.json({ message: "No connection selected" }, { status: 400 });
+        }
         const mongo = await dbConnection(connection);
         const pool = mongo.getPool(db);
 

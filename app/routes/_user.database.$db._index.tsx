@@ -1,5 +1,5 @@
 import { PlusIcon, ArrowRightIcon, TrashIcon, SortAscIcon, SortDescIcon, DatabaseIcon } from "@primer/octicons-react";
-import { ActionFunction, LoaderFunction } from "@remix-run/node";
+import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { HardDrive, Library, Settings } from "lucide-react";
 import { useState, SyntheticEvent } from "react";
@@ -26,6 +26,10 @@ export const loader: LoaderFunction = async ({ request, params }) => {
     }
     const session = await getUserSession(request);
     const connection = session.get("connection");
+
+    if (!connection) {
+        return redirect("/connections");
+    }
 
     let mongo: ConnectionData;
 
@@ -79,12 +83,15 @@ export const action: ActionFunction = async ({ request, params }) => {
 
             const session = await getUserSession(request);
             const connection = session.get("connection");
+            if (!connection) {
+                return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
+            }
 
             let mongo: ConnectionData;
 
             mongo = await db(connection);
 
-            const collection = new Collection(mongo, dbName, collectionName, config, connection.allowDiskUse);
+            const collection = new Collection(mongo, dbName, collectionName, config);
             await collection.createCollection(collectionName);
 
             return Response.json({ status: "success", message: "Collection is created" }, { status: 200 });
@@ -97,12 +104,15 @@ export const action: ActionFunction = async ({ request, params }) => {
 
             const session = await getUserSession(request);
             const connection = session.get("connection");
+            if (!connection) {
+                return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
+            }
 
             let mongo: ConnectionData;
 
             mongo = await db(connection);
 
-            const collection = new Collection(mongo, dbName, collectionName, config, connection.allowDiskUse);
+            const collection = new Collection(mongo, dbName, collectionName, config);
             await collection.deleteCollection();
 
             return Response.json({ status: "success", message: "Collection is deleted" }, { status: 200 });

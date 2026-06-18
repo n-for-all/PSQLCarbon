@@ -1,5 +1,5 @@
 import { ArrowRightIcon, ListUnorderedIcon, ServerIcon, TrashIcon } from "@primer/octicons-react";
-import { ActionFunction, LoaderFunction } from "@remix-run/node";
+import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate, useParams } from "@remix-run/react";
 import { useState, SyntheticEvent, useEffect, useRef, lazy, Suspense } from "react";
 import config from "~/config";
@@ -113,6 +113,9 @@ export const IdeWithAutocomplete = ({ onChange, value }) => {
 const loadConnection = async (request: Request): Promise<ConnectionData> => {
     const session = await getUserSession(request);
     const connection = session.get("connection");
+    if (!connection) {
+        throw redirect("/connections");
+    }
 
     return await db(connection);
 };
