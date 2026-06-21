@@ -1,7 +1,7 @@
-import { ArrowRightIcon, ListUnorderedIcon, ServerIcon, TrashIcon } from "@primer/octicons-react";
+import { ArrowRightIcon, ListUnorderedIcon, ServerIcon, TrashIcon, SyncIcon } from "@primer/octicons-react";
 import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate, useParams } from "@remix-run/react";
-import { useState, SyntheticEvent, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, SyntheticEvent, useEffect, useRef } from "react";
 import config from "~/config";
 import { Collection } from "~/lib/data/collection";
 import db, { ConnectionData } from "~/lib/db";
@@ -13,22 +13,18 @@ import { CsvTable } from "~/components/csv_table";
 import { Editor } from "@monaco-editor/react";
 import { AlertMessage } from "~/components/alert";
 
-import { CopyTextButton } from "~/components/copy_text";
 import { getUserSession } from "~/utils/session.server";
 import { CollectionDeleteModal } from "~/components/collection";
-import { Button, ButtonSkeleton } from "~/ui/button";
+import { Button } from "~/ui/button";
 import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from "~/ui/accordion";
 import { Table, TableBody, TableCell, TableRow } from "~/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/ui/tabs";
 import { Pagination } from "~/ui/pagination";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "~/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "~/ui/alert";
+import { SearchInput } from "~/ui/input";
 
-import { isCursor } from "~/utils/functions.server";
-import { Textarea } from "~/ui/textarea";
-import Modal from "~/ui/modal";
 import { toast } from "~/ui/hooks/use-toast";
-import { ChartColumn, ChartNoAxesColumn } from "lucide-react";
+import { ChartNoAxesColumn } from "lucide-react";
 
 type loaderCollectionData = {
     title: string;
@@ -81,6 +77,8 @@ type loaderCollectionData = {
     skip?: number;
     limit?: number;
     sort?: { [key: string]: string | number };
+    indexes?: Array<{name: string, definition: string}>;
+    structure?: Array<{name: string, type: string, max_length: number, is_nullable: string, default_value: string}>;
 };
 
 
@@ -246,11 +244,13 @@ export default function CollectionPage() {
     const [jsonQueryString, setJsonQueryString] = useState("");
     const [errorJsonQueryString, setErrorJsonQueryString] = useState("");
     const [isDelete, setIsDelete] = useState(false);
+    const [searchField, setSearchField] = useState("");
+    const [searchValue, setSearchValue] = useState("");
     const navigate = useNavigate();
 
     const { columns } = loaderData;
     const [data, setData] = useState<loaderCollectionData>(loaderData);
-    const { title, stats, count, documents: loaderDocuments, raw } = data;
+    const { title, stats, count, documents: loaderDocuments, raw, indexes, structure } = data;
     const routeParams = useParams();
 
     let documents = [];
@@ -292,6 +292,40 @@ export default function CollectionPage() {
         );
     };
 
+    const refreshData = (pageOverride?: number) => {
+        const pageToUse = pageOverride || currentPage.page;
+        const paginationObj: any = {};
+        if (pageToUse > 1) {
+            const skip = (pageToUse - 1) * currentPage.pageSize;
+            paginationObj["skip"] = skip;
+        }
+
+        if (currentPage.pageSize != 10) {
+            paginationObj["limit"] = currentPage.pageSize;
+        }
+
+        const payload: any = {
+            ...paginationObj,
+            sort: sort.field,
+            direction: sort.direction,
+        };
+
+        if (searchField && searchValue) {
+            payload.key = searchField;
+            payload.value = searchValue;
+            payload.type = "S";
+        }
+
+        pageFetcher.submit(
+            payload,
+            {
+                method: "POST",
+                encType: "application/json",
+                action: `/database/${routeParams.db}/${routeParams.col}`,
+            }
+        );
+    };
+
     useEffect(() => {
         if (!initRef.current) {
             initRef.current = true;
@@ -302,30 +336,7 @@ export default function CollectionPage() {
             return;
         }
 
-        const paginationObj = {};
-        if (currentPage.page > 1) {
-            const skip = (currentPage.page - 1) * currentPage.pageSize;
-            paginationObj["skip"] = skip;
-        }
-
-        if (currentPage.pageSize != 10) {
-            paginationObj["limit"] = currentPage.pageSize;
-        }
-
-        pageFetcher.submit(
-            {
-                ...paginationObj,
-                sort: sort.field,
-                direction: sort.direction,
-            },
-            {
-                method: "POST",
-                encType: "application/json",
-                action: `/database/${routeParams.db}/${routeParams.col}`,
-            }
-        );
-
-        // navigate(pageNavigate(`/database/${routeParams.db}/${routeParams.col}`, currentPage.page, currentPage.pageSize, sort.field, sort.direction));
+        refreshData();
     }, [currentPage.page, currentPage.pageSize, sort.field, sort.direction]);
 
     useEffect(() => {
@@ -567,8 +578,131 @@ export default function CollectionPage() {
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
+                        {structure && structure.length > 0 && (
+                            <AccordionItem value="structure" className="pr-0 ">
+                                <AccordionTrigger className="px-4 border-t border-solid border-neutral-200">
+                                    <span className="flex items-center font-medium">
+                                        <ListUnorderedIcon className="w-4 h-4 mr-2" /> Structure
+                                    </span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-0">
+                                    <div className="p-4 w-full overflow-x-auto">
+                                        <Table className="text-md">
+                                            <TableBody>
+                                                <TableRow>
+                                                    <TableCell className="font-bold">Name</TableCell>
+                                                    <TableCell className="font-bold">Type</TableCell>
+                                                    <TableCell className="font-bold">Max Length</TableCell>
+                                                    <TableCell className="font-bold">Nullable</TableCell>
+                                                    <TableCell className="font-bold">Default Value</TableCell>
+                                                </TableRow>
+                                                {structure.map((col, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell>{col.name}</TableCell>
+                                                        <TableCell>{col.type}</TableCell>
+                                                        <TableCell>{col.max_length || "-"}</TableCell>
+                                                        <TableCell>{col.is_nullable}</TableCell>
+                                                        <TableCell>{col.default_value || "-"}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )}
+                        {indexes && indexes.length > 0 && (
+                            <AccordionItem value="indexes" className="pr-0 ">
+                                <AccordionTrigger className="px-4 border-t border-solid border-neutral-200">
+                                    <span className="flex items-center font-medium">
+                                        <ServerIcon className="w-4 h-4 mr-2" /> Indexes
+                                    </span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-0">
+                                    <div className="p-4 w-full overflow-x-auto">
+                                        <Table className="text-md">
+                                            <TableBody>
+                                                <TableRow>
+                                                    <TableCell className="font-bold">Name</TableCell>
+                                                    <TableCell className="font-bold">Definition</TableCell>
+                                                </TableRow>
+                                                {indexes.map((idx, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell>{idx.name}</TableCell>
+                                                        <TableCell className="font-mono text-xs">{idx.definition}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )}
                     </Accordion>
                 </div>
+                
+                <div className="flex items-center gap-2 mb-3 bg-neutral-100 p-2 border border-neutral-200">
+                    <Select value={searchField} onValueChange={setSearchField}>
+                        <SelectTrigger className="w-[180px] h-8 bg-white text-xs font-semibold">
+                            <SelectValue placeholder="Select Column" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {currentColumns.map((col: string) => (
+                                <SelectItem key={col} value={col}>{col}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <SearchInput
+                        placeholder="Search exactly..." 
+                        value={searchValue}
+                        onChange={setSearchValue}
+                        onKeyDown={(e: React.KeyboardEvent) => {
+                            if (e.key === "Enter") {
+                                if (currentPage.page === 1) {
+                                    refreshData();
+                                } else {
+                                    setCurrentPage({ ...currentPage, page: 1 });
+                                }
+                            }
+                        }}
+                        className="w-[250px] h-8 text-xs border-neutral-300"
+                    />
+                    <Button size="sm" variant="secondary" onClick={() => {
+                        if (currentPage.page === 1) {
+                            refreshData();
+                        } else {
+                            setCurrentPage({ ...currentPage, page: 1 });
+                        }
+                    }}>
+                        Search
+                    </Button>
+                    {searchField && searchValue && (
+                        <Button size="sm" variant="ghost" onClick={() => {
+                            setSearchValue("");
+                            setSearchField("");
+                            setTimeout(() => {
+                                if (currentPage.page === 1) {
+                                    pageFetcher.submit(
+                                        {
+                                            sort: sort.field,
+                                            direction: sort.direction,
+                                            limit: currentPage.pageSize
+                                        },
+                                        { method: "POST", encType: "application/json", action: `/database/${routeParams.db}/${routeParams.col}` }
+                                    );
+                                } else {
+                                    setCurrentPage({ ...currentPage, page: 1 });
+                                }
+                            }, 0);
+                        }}>
+                            Clear
+                        </Button>
+                    )}
+                    <div className="ml-auto">
+                        <Button size="sm" variant="ghost" icon={<SyncIcon />} hasIconOnly tooltip="Refresh" onClick={() => refreshData()} />
+                    </div>
+                </div>
+
                 <div className="w-full min-h-72">{items}</div>
             </div>
             <Pagination

@@ -168,6 +168,31 @@ export class Collection {
             console.error("Failed to fetch table stats", e);
         }
 
+        let indexes = [];
+        try {
+            const indexRes = await this.pool.query(`
+                SELECT indexname as name, indexdef as definition
+                FROM pg_indexes
+                WHERE tablename = $1;
+            `, [this.collectionName]);
+            indexes = indexRes.rows;
+        } catch (e) {
+            console.error("Failed to fetch indexes", e);
+        }
+
+        let structure = [];
+        try {
+            const structureRes = await this.pool.query(`
+                SELECT column_name as name, data_type as type, character_maximum_length as max_length, is_nullable, column_default as default_value
+                FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = $1
+                ORDER BY ordinal_position;
+            `, [this.collectionName]);
+            structure = structureRes.rows;
+        } catch (e) {
+            console.error("Failed to fetch structure", e);
+        }
+
         const ctx = {
             title: this.collectionName,
             docs,
@@ -201,7 +226,8 @@ export class Collection {
             query: query.query,
             projection: query.projection,
             runAggregate: false,
-            indexes: [],
+            indexes,
+            structure,
         };
 
         return ctx;

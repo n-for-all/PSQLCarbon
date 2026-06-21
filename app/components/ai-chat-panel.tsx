@@ -67,15 +67,15 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                         setActiveSessionId(newSession.id);
                         setMessages(parsedMessages);
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         }
-        
+
         const savedHistory = localStorage.getItem("ai_chat_history");
         if (savedHistory) {
             try {
                 setHistory(JSON.parse(savedHistory));
-            } catch (e) {}
+            } catch (e) { }
         }
     }, []);
 
@@ -133,11 +133,11 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                 body: JSON.stringify({ sql, db })
             });
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.message || "Failed to execute query");
             }
-            
+
             if (data.columns && data.columns.length > 0) {
                 setMessages((prev) => [...prev, { role: "system", content: { columns: data.columns, rows: data.rows.slice(0, 10), total: data.rows.length } }]);
             } else {
@@ -247,14 +247,14 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                         <h3 className="font-bold text-md">AI Assistant</h3>
                     </div>
                     {messages.length > 0 && (
-                        <button 
+                        <button
                             onClick={() => {
                                 setMessages([]);
                                 if (activeSessionId) {
                                     setSessions(prev => prev.filter(s => s.id !== activeSessionId));
                                     setActiveSessionId(null);
                                 }
-                            }} 
+                            }}
                             className="text-xs text-neutral-500 hover:text-red-500 font-medium"
                         >
                             Delete Chat
@@ -273,7 +273,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                     </SelectContent>
                 </Select>
             </div>
-            
+
             <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4 space-y-4">
                 {messages.length === 0 && (
                     <div className="text-center text-sm text-neutral-500 mt-10">
@@ -293,7 +293,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                     ) : (
                                         (() => {
                                             const parts = msg.content.split(/```(\w*)\s*\n([\s\S]*?)```/gi);
-                                            const renderedParts = [];
+                                            const renderedParts: any[] = [];
                                             for (let i = 0; i < parts.length; i++) {
                                                 if (i % 3 === 0) {
                                                     if (parts[i].trim()) {
@@ -314,10 +314,10 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                                             <div className="flex gap-2">
                                                                 <CopyTextButton size="sm" variant="outline" text={code}>Copy Code</CopyTextButton>
                                                                 {isExecutableQuery && (
-                                                                    <Button 
-                                                                        size="sm" 
-                                                                        variant="secondary" 
-                                                                        icon={<PlayIcon />} 
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="secondary"
+                                                                        icon={<PlayIcon />}
                                                                         onClick={() => handleExecuteInternal(code)}
                                                                     >
                                                                         Use Query
@@ -413,12 +413,12 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                         disabled={loading}
                     />
                     <div className="absolute right-2 bottom-2">
-                        <Button 
+                        <Button
                             size="sm"
-                            type="submit" 
-                            disabled={loading || !input.trim()} 
-                            icon={<ArrowRightIcon />} 
-                            hasIconOnly 
+                            type="submit"
+                            disabled={loading || !input.trim()}
+                            icon={<ArrowRightIcon />}
+                            hasIconOnly
                         />
                     </div>
                 </form>
