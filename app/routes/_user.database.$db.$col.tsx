@@ -437,7 +437,7 @@ export default function CollectionPage() {
                                 <span className="ml-1 font-mono text-base">{title}</span>
                             </>
                         </Title>
-                        <p className="text-sm">{isRaw ? `Returned Rows: ${currentRows?.length || 0}` : `Total Rows: ${stats?.count || 0}`}</p>
+                        <p className="text-sm">{isRaw ? `Returned Rows: ${currentRows?.length || 0}` : `Total Rows: ${count || 0}`}</p>
                     </div>
                     <div className="flex items-center justify-end gap-1">
                         <Button
@@ -655,7 +655,7 @@ export default function CollectionPage() {
                     <SearchInput
                         placeholder="Search exactly..." 
                         value={searchValue}
-                        onChange={setSearchValue}
+                        onChange={(value) => setSearchValue(value)}
                         onKeyDown={(e: React.KeyboardEvent) => {
                             if (e.key === "Enter") {
                                 if (currentPage.page === 1) {

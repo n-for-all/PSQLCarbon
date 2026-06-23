@@ -7,14 +7,14 @@ import { Button } from "~/ui/button";
 import { SortAscIcon, SortDescIcon, EyeIcon } from "@primer/octicons-react";
 
 interface CsvTableProps {
-    sort: { field: string; direction: number };
+    sort?: { field: string; direction: number };
     rows: any[];
     columns?: string[];
     allowEdit?: boolean;
-    onSort: (field: string) => void;
+    onSort?: (field: string) => void;
 }
 
-export const CsvTable = ({ sort, rows, columns, allowEdit = false, onSort }: CsvTableProps) => {
+export const CsvTable = ({ sort = { field: "", direction: 1 }, rows, columns, allowEdit = false, onSort }: CsvTableProps) => {
     let headers: string[] = columns || [];
     if (headers.length === 0 && rows.length > 0) {
         rows.forEach((row) => {
@@ -51,9 +51,9 @@ export const CsvTable = ({ sort, rows, columns, allowEdit = false, onSort }: Csv
                                     key={header}>
                                     <div className="flex items-center justify-between min-w-[150px] resize-x overflow-hidden pr-2">
                                         <div 
-                                            className="flex-1 flex items-center justify-between gap-2 cursor-pointer"
+                                            className={`flex-1 flex items-center justify-between gap-2 ${onSort ? 'cursor-pointer' : ''}`}
                                             onClick={() => {
-                                                onSort(header);
+                                                if (onSort) onSort(header);
                                             }}
                                         >
                                             <span className="truncate">{header}</span>

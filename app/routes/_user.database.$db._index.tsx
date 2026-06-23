@@ -1,8 +1,8 @@
 import { PlusIcon, ArrowRightIcon, TrashIcon, SortAscIcon, SortDescIcon, DatabaseIcon } from "@primer/octicons-react";
 import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { HardDrive, Library, Settings } from "lucide-react";
-import { useState, SyntheticEvent } from "react";
+import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { HardDrive, Library, Settings, Terminal } from "lucide-react";
+import { useState, SyntheticEvent, useEffect } from "react";
 import { CollectionAddModal, CollectionDeleteModal } from "~/components/collection";
 import { DatabaseDeleteModal } from "~/components/database";
 import Title from "~/components/title";
@@ -18,6 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "~/ui/select";
 import { Table, TableBody, TableCell, TableRow } from "~/ui/table";
 import { convertBytes, isValidCollectionName, numberWithCommas } from "~/utils/functions";
 import { getUserSession } from "~/utils/session.server";
+import { Editor } from "@monaco-editor/react";
+import { AlertMessage } from "~/components/alert";
+import { CsvTable } from "~/components/csv_table";
 
 
 export const loader: LoaderFunction = async ({ request, params }) => {
@@ -131,6 +134,32 @@ enum sortingSelect {
     "index-size" = "Total Index Size",
 }
 
+const IdeWithAutocomplete = ({ onChange, value }: { onChange: (v: string | undefined) => void; value: string }) => {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
+    if (!mounted) {
+        return <div className="min-h-[150px] border border-neutral-200 p-4 text-xs text-neutral-500">Loading editor...</div>;
+    }
+
+    return (
+        <Editor
+            height="150px"
+            language="pgsql"
+            theme="light"
+            value={value}
+            onChange={onChange}
+            options={{
+                minimap: { enabled: false },
+                lineNumbers: "off",
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                fontSize: 13,
+            }}
+        />
+    );
+};
+
 export default function DatabasePage() {
     const loaderData = useLoaderData<typeof loader>();
     // const matches = useMatches();
@@ -143,6 +172,39 @@ export default function DatabasePage() {
     const [collectionDelete, setCollectionDelete] = useState<string | null>(null);
 
     const stats = loaderData?.stats;
+
+    // ── Query editor state ──────────────────────────────────────────────
+    const queryFetcher = useFetcher<any>();
+    const [sqlQuery, setSqlQuery] = useState("");
+    const [queryError, setQueryError] = useState("");
+    const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: any[] } | null>(null);
+    const queryLoading = queryFetcher.state === "submitting" || queryFetcher.state === "loading";
+
+    useEffect(() => {
+        if (!queryFetcher.data) return;
+        if (queryFetcher.data.message) {
+            setQueryError(queryFetcher.data.message);
+            setQueryResult(null);
+        } else {
+            setQueryError("");
+            setQueryResult({ columns: queryFetcher.data.columns || [], rows: queryFetcher.data.rows || [] });
+        }
+    }, [queryFetcher.data]);
+
+    const executeDbSql = () => {
+        if (!sqlQuery || sqlQuery.trim() === "") {
+            setQueryError("Please enter a SQL query");
+            return;
+        }
+        setQueryError("");
+        setQueryResult(null);
+        queryFetcher.submit(
+            { sql: sqlQuery, db: stats?.name },
+            { method: "POST", encType: "application/json", action: "/api/query" }
+        );
+    };
+    // ───────────────────────────────────────────────────────────────────
+
     if (loaderData?.error) {
         return (
             <Alert>
@@ -156,6 +218,12 @@ export default function DatabasePage() {
     }
 
     let totalRecords = 0;
+    stats.collectionList.forEach((collection: any) => {
+        if (search && search.trim() != "" && !(collection.name.toLowerCase().indexOf(search.toLowerCase()) == 0)) {
+            return;
+        }
+        totalRecords += collection.count || 0;
+    });
 
     switch (sort) {
         case "name":
@@ -288,6 +356,58 @@ export default function DatabasePage() {
                             }}></Button>
                     </div>
                 </div>
+
+                {/* ── Database-level Query Editor ── */}
+                <div className="p-4 mt-1 mb-4 border border-solid border-neutral-300">
+                    <div className="py-1">
+                        <span className="flex items-center gap-1 text-base font-bold">
+                            <Terminal size={15} />
+                            Query Editor
+                        </span>
+                        <span className="block mb-2 text-xs opacity-50">Run SQL queries against this database</span>
+                    </div>
+                    <div className="flex flex-col bg-white border border-neutral-200 min-h-36">
+                        <div className="flex-1 overflow-auto">
+                            <IdeWithAutocomplete
+                                value={sqlQuery}
+                                onChange={(val) => setSqlQuery(val ?? "")}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2 mt-2">
+                        <div className="flex items-center justify-between">
+                            <Button
+                                size="sm"
+                                disabled={!sqlQuery || sqlQuery === ""}
+                                icon={<ArrowRightIcon />}
+                                loading={queryLoading}
+                                onClick={(e: SyntheticEvent) => {
+                                    e.preventDefault();
+                                    executeDbSql();
+                                }}
+                            >
+                                Execute SQL
+                            </Button>
+                            {queryResult && (
+                                <span className="text-xs opacity-60">
+                                    {queryResult.rows.length} row{queryResult.rows.length !== 1 ? "s" : ""} returned
+                                </span>
+                            )}
+                        </div>
+                        {queryError !== "" && <AlertMessage message={queryError} onClose={() => setQueryError("")} />}
+                    </div>
+                    {queryResult && queryResult.rows.length > 0 && (
+                        <div className="mt-3 overflow-auto border border-neutral-200 max-h-96">
+                            <CsvTable columns={queryResult.columns} rows={queryResult.rows} />
+                        </div>
+                    )}
+                    {queryResult && queryResult.rows.length === 0 && (
+                        <div className="mt-3 px-3 py-2 text-sm text-neutral-500 border border-neutral-200 bg-neutral-50">
+                            Query executed successfully — no rows returned.
+                        </div>
+                    )}
+                </div>
+
                 <Accordion type="multiple" className="mb-4 bg-neutral-100">
                     <AccordionItem value="stats" title="More Details" className="pr-0 ">
                         <AccordionTrigger className="px-4 border-t border-solid border-neutral-200">
@@ -354,7 +474,6 @@ export default function DatabasePage() {
                     if (search && search.trim() != "" && !(collection.name.toLowerCase().indexOf(search.toLowerCase()) == 0)) {
                         return null;
                     }
-                    totalRecords += collection.count;
                     const avgRecordSize = collection.stats.storageStats?.storageSize / collection.count;
                     return (
                         <div key={index} className="mb-3 bg-neutral-100">

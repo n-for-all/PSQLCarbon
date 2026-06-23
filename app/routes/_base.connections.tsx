@@ -205,6 +205,7 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
+                allowDiskUse: true
             });
 
             const session = await getUserSession(request);
@@ -317,6 +318,7 @@ export const action: ActionFunction = async ({ request }) => {
                 maxPoolSize,
                 whitelist,
                 blacklist,
+                allowDiskUse: true
             });
 
             return Response.json({
