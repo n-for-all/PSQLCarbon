@@ -200,7 +200,16 @@ export default function Layout() {
                         navigate(`/database/${database}`);
                     }}
                     key={database}
-                    label={<span className="font-mono text-sm">{database}</span>}
+                    label={
+                        <span className="flex items-center gap-2">
+                            <span className="font-mono text-sm">{database}</span>
+                            {["postgres", "template0", "template1"].includes(database) && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-medium leading-none text-neutral-500 bg-neutral-200/50 rounded border border-neutral-200">
+                                    SYS
+                                </span>
+                            )}
+                        </span>
+                    }
                     onToggle={(e, node) => {
                         const isExpanded = node?.isExpanded;
                         setCurrent(
