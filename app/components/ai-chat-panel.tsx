@@ -115,13 +115,8 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
     }, [messages, loading]);
 
     const handleExecuteInternal = async (sql: string) => {
-        const isModifying = checkIsModifying(sql);
-        if (isModifying) {
-            window.dispatchEvent(new CustomEvent("ai-populate-editor", { detail: { sql } }));
-            setMessages((prev) => [...prev, { role: "system", content: "I've populated the query editor with your statement. You can review and execute it from there." }]);
-            return;
-        }
-        await doExecuteSql(sql);
+        window.dispatchEvent(new CustomEvent("ai-populate-editor", { detail: { sql } }));
+        setMessages((prev) => [...prev, { role: "system", content: "I've populated the query editor with your statement. You can review and execute it from there." }]);
     };
 
     const doExecuteSql = async (sql: string) => {

@@ -181,6 +181,18 @@ export default function DatabasePage() {
     const queryLoading = queryFetcher.state === "submitting" || queryFetcher.state === "loading";
 
     useEffect(() => {
+        const handler = (e: any) => {
+            const sql = e.detail?.sql;
+            if (sql) {
+                setSqlQuery(sql);
+                setQueryError("");
+            }
+        };
+        window.addEventListener("ai-populate-editor", handler);
+        return () => window.removeEventListener("ai-populate-editor", handler);
+    }, []);
+
+    useEffect(() => {
         if (!queryFetcher.data) return;
         if (queryFetcher.data.message) {
             setQueryError(queryFetcher.data.message);
