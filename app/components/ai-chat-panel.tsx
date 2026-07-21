@@ -281,10 +281,10 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                             <div className="mt-1 flex-shrink-0 text-neutral-500">
                                 {msg.role === "user" ? <PersonIcon /> : <DependabotIcon />}
                             </div>
-                            <div className={`p-3 rounded-lg text-sm ${msg.role === "user" ? "bg-primary text-white" : "bg-white border border-neutral-200"}`}>
+                            <div className={`p-3 rounded-lg text-sm break-words min-w-0 ${msg.role === "user" ? "bg-primary text-white" : "bg-white border border-neutral-200"}`}>
                                 {msg.role === "ai" ? (
                                     msg.content.startsWith("Error:") ? (
-                                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                                     ) : (
                                         (() => {
                                             const parts = msg.content.split(/```(\w*)\s*\n([\s\S]*?)```/gi);
@@ -292,7 +292,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                             for (let i = 0; i < parts.length; i++) {
                                                 if (i % 3 === 0) {
                                                     if (parts[i].trim()) {
-                                                        renderedParts.push(<p key={i} className="whitespace-pre-wrap mb-2">{parts[i].trim()}</p>);
+                                                        renderedParts.push(<p key={i} className="whitespace-pre-wrap break-words mb-2">{parts[i].trim()}</p>);
                                                     }
                                                 } else if (i % 3 === 2) {
                                                     const lang = parts[i - 1].toLowerCase();
@@ -305,7 +305,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                                     renderedParts.push(
                                                         <div key={i} className="my-2 p-2 bg-neutral-100 rounded border border-neutral-200">
                                                             {lang && <div className="text-xs text-neutral-400 mb-1 uppercase tracking-wider font-semibold">{lang}</div>}
-                                                            <pre className="whitespace-pre-wrap font-mono text-xs mb-2 text-neutral-800">{code}</pre>
+                                                            <pre className="whitespace-pre-wrap break-words font-mono text-xs mb-2 text-neutral-800">{code}</pre>
                                                             <div className="flex gap-2">
                                                                 <CopyTextButton size="sm" variant="outline" text={code}>Copy Code</CopyTextButton>
                                                                 {isExecutableQuery && (
@@ -328,7 +328,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                     )
                                 ) : msg.role === "system" ? (
                                     typeof msg.content === "string" ? (
-                                        <p className="whitespace-pre-wrap text-neutral-500 text-xs font-mono">{msg.content}</p>
+                                        <p className="whitespace-pre-wrap break-words text-neutral-500 text-xs font-mono">{msg.content}</p>
                                     ) : (
                                         <div className="overflow-x-auto">
                                             <Table className="text-xs">
@@ -355,7 +355,7 @@ export const AiChatPanel = ({ db, table, columns }: AiChatPanelProps) => {
                                         </div>
                                     )
                                 ) : (
-                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                                 )}
                             </div>
                         </div>
