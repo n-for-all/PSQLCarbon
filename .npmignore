@@ -1,0 +1,18 @@
+# npm reads this file instead of .gitignore, so everything ignored there is repeated here
+node_modules
+certificates
+/.cache
+.env
+.history
+.DS_Store
+prisma/db.db
+prisma/db.db-journal
+build/
+dist-electron/
+
+# Not part of the npm package: the App Store material and the desktop app
+docs/
+electron/
+electron-builder.config.cjs
+scripts/
+.github/

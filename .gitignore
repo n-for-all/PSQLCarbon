@@ -1,4 +1,5 @@
 node_modules
+certificates
 
 /.cache
 .env
@@ -7,4 +8,8 @@ node_modules
 prisma/db.db
 prisma/db.db-journal
 build/
-server/
+dist-electron/
+electron/pg-tools/
+electron/entitlements/mas.plist
+electron/embedded.provisionprofile
+docs

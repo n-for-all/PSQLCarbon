@@ -2,6 +2,7 @@ import { PlusIcon, ArrowRightIcon, TrashIcon, SortAscIcon, SortDescIcon, Databas
 import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { HardDrive, Library, Settings, Terminal } from "lucide-react";
+import { DatabaseTabs } from "~/components/database-tabs";
 import { useState, SyntheticEvent, useEffect } from "react";
 import { CollectionAddModal, CollectionDeleteModal } from "~/components/collection";
 import { DatabaseDeleteModal } from "~/components/database";
@@ -17,18 +18,20 @@ import { NativeInput, SearchInput } from "~/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "~/ui/select";
 import { Table, TableBody, TableCell, TableRow } from "~/ui/table";
 import { convertBytes, isValidCollectionName, numberWithCommas } from "~/utils/functions";
-import { getUserSession } from "~/utils/session.server";
+import { getSessionConnection } from "~/utils/session.server";
 import { Editor } from "@monaco-editor/react";
+import { SQL_EDITOR_OPTIONS, useMonacoTheme } from "~/utils/editor";
 import { AlertMessage } from "~/components/alert";
 import { CsvTable } from "~/components/csv_table";
+import { QueryLibrary } from "~/components/query-library";
+import { ExportButtons } from "~/components/export-buttons";
 
 
 export const loader: LoaderFunction = async ({ request, params }) => {
     if (!params.db) {
         return Response.json({ status: "error", message: "No database specified" }, { status: 500 });
     }
-    const session = await getUserSession(request);
-    const connection = session.get("connection");
+    const connection = await getSessionConnection(request);
 
     if (!connection) {
         return redirect("/connections");
@@ -84,8 +87,7 @@ export const action: ActionFunction = async ({ request, params }) => {
 
             const { collectionName } = jsonQuery.create;
 
-            const session = await getUserSession(request);
-            const connection = session.get("connection");
+            const connection = await getSessionConnection(request);
             if (!connection) {
                 return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
             }
@@ -105,8 +107,7 @@ export const action: ActionFunction = async ({ request, params }) => {
                 return Response.json({ status: "error", message: "Invalid collection" }, { status: 500 });
             }
 
-            const session = await getUserSession(request);
-            const connection = session.get("connection");
+            const connection = await getSessionConnection(request);
             if (!connection) {
                 return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
             }
@@ -135,6 +136,7 @@ enum sortingSelect {
 }
 
 const IdeWithAutocomplete = ({ onChange, value }: { onChange: (v: string | undefined) => void; value: string }) => {
+    const monacoTheme = useMonacoTheme();
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
@@ -146,16 +148,10 @@ const IdeWithAutocomplete = ({ onChange, value }: { onChange: (v: string | undef
         <Editor
             height="150px"
             language="pgsql"
-            theme="light"
+            theme={monacoTheme}
             value={value}
             onChange={onChange}
-            options={{
-                minimap: { enabled: false },
-                lineNumbers: "off",
-                scrollBeyondLastLine: false,
-                wordWrap: "on",
-                fontSize: 13,
-            }}
+            options={SQL_EDITOR_OPTIONS}
         />
     );
 };
@@ -203,6 +199,8 @@ export default function DatabasePage() {
         }
     }, [queryFetcher.data]);
 
+    // The query behind the shown results, exports run it again
+    const [ranSql, setRanSql] = useState("");
     const executeDbSql = () => {
         if (!sqlQuery || sqlQuery.trim() === "") {
             setQueryError("Please enter a SQL query");
@@ -210,6 +208,7 @@ export default function DatabasePage() {
         }
         setQueryError("");
         setQueryResult(null);
+        setRanSql(sqlQuery);
         queryFetcher.submit(
             { sql: sqlQuery, db: stats?.name },
             { method: "POST", encType: "application/json", action: "/api/query" }
@@ -295,6 +294,7 @@ export default function DatabasePage() {
     return (
         <>
             <div className="database-page">
+                <DatabaseTabs database={stats.name} active="tables" />
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-4 lg:flex-nowrap">
                     <div>
                         <Title title={stats.name}>
@@ -378,6 +378,7 @@ export default function DatabasePage() {
                         </span>
                         <span className="block mb-2 text-xs opacity-50">Run SQL queries against this database</span>
                     </div>
+                    <QueryLibrary database={stats?.name} sql={sqlQuery} onLoad={setSqlQuery} refreshKey={queryFetcher.data} />
                     <div className="flex flex-col bg-white border border-neutral-200 min-h-36">
                         <div className="flex-1 overflow-auto">
                             <IdeWithAutocomplete
@@ -401,8 +402,11 @@ export default function DatabasePage() {
                                 Execute SQL
                             </Button>
                             {queryResult && (
-                                <span className="text-xs opacity-60">
-                                    {queryResult.rows.length} row{queryResult.rows.length !== 1 ? "s" : ""} returned
+                                <span className="flex flex-wrap items-center gap-3">
+                                    <span className="text-xs opacity-60">
+                                        {queryResult.rows.length} row{queryResult.rows.length !== 1 ? "s" : ""} returned
+                                    </span>
+                                    {queryResult.columns?.length > 0 && <ExportButtons database={stats?.name} sql={ranSql} />}
                                 </span>
                             )}
                         </div>

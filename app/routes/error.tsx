@@ -3,13 +3,13 @@ import { Link, redirect } from "@remix-run/react";
 import { LoaderFunction } from "@remix-run/node";
 import { User } from "~/utils/session.server";
 import { useState } from "react";
-import { Footer } from "~/components/footer";
 import { Logo } from "~/components/logo";
 import { Header, HeaderAction, HeaderActions, HeaderMenuButton, HeaderName } from "~/ui/header";
 import SkipToContent from "~/ui/skip-to-content";
 import { Avatar, AvatarFallback } from "~/ui/avatar";
 import { ArrowRightIcon, SignOutIcon, ThreeBarsIcon, XIcon } from "@primer/octicons-react";
 import { Button } from "~/ui/button";
+import { useIsDesktop, useMacTitlebar } from "~/utils/desktop";
 
 interface UUID {
     $uuid: string;
@@ -55,13 +55,15 @@ export const loader: LoaderFunction = async ({ request, params }) => {
 };
 
 export default function Layout() {
+    const desktop = useIsDesktop();
+    const macTitlebar = useMacTitlebar();
     const loaderData = useLoaderData<typeof loader>();
 
     const [isSideNavExpanded, setIsSideNavExpanded] = useState(false);
 
     return (
         <>
-            <Header aria-label="">
+            <Header aria-label="" className={`app-drag ${macTitlebar ? "h-10 pl-[76px] bg-neutral-100 border-b border-neutral-200" : "h-12"}`}>
                 <SkipToContent />
                 <HeaderMenuButton
                     aria-label="Open menu"
@@ -83,11 +85,13 @@ export default function Layout() {
                             </Avatar>
                         </HeaderAction>
                     </Link>
-                    <HeaderAction aria-label="Logout">
-                        <Link to={"/logout"}>
-                            <SignOutIcon size={20} />
-                        </Link>
-                    </HeaderAction>
+                    {!desktop && (
+                        <HeaderAction aria-label="Logout">
+                            <Link to={"/logout"}>
+                                <SignOutIcon size={20} />
+                            </Link>
+                        </HeaderAction>
+                    )}
                 </HeaderActions>
             </Header>
 
@@ -109,7 +113,6 @@ export default function Layout() {
                     </div>
                 </div>
             </div>
-            <Footer />
         </>
     );
 }

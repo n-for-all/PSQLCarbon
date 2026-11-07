@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "./select";
 import { cn, isArraysEqual } from "./lib/utils";
 import { TriangleLeftIcon, TriangleRightIcon } from "@primer/octicons-react";
@@ -120,6 +120,36 @@ function mapPageSizesToObject(sizes) {
     return typeof sizes[0] === "object" && sizes[0] !== null ? sizes : sizes.map((size) => ({ text: size, value: size }));
 }
 
+// Above this many pages the page picker is a number field, one menu entry per page doesn't scale to big tables
+const MAX_PAGE_OPTIONS = 200;
+
+/**
+ * Type a page number, it's applied with Enter or when the field loses focus
+ */
+const PageNumberInput = ({ page, totalPages, disabled, onChange }: { page: number; totalPages: number; disabled?: boolean; onChange: (value: string) => void }) => {
+    const [value, setValue] = useState(String(page));
+    useEffect(() => setValue(String(page)), [page]);
+    const apply = () => {
+        const wanted = Math.min(Math.max(Math.floor(Number(value)) || 1, 1), totalPages);
+        setValue(String(wanted));
+        if (wanted !== page) onChange(String(wanted));
+    };
+    return (
+        <input
+            type="number"
+            min={1}
+            max={totalPages}
+            value={value}
+            disabled={disabled}
+            aria-label="Page number"
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={apply}
+            onKeyDown={(e) => e.key === "Enter" && apply()}
+            className="w-20 px-2 my-1.5 text-right bg-white border border-neutral-300 focus:outline-none focus:border-neutral-500 [appearance:textfield]"
+        />
+    );
+};
+
 function renderSelectItems(total) {
     let counter = 1;
     const itemArr: React.ReactNode[] = [];
@@ -189,7 +219,7 @@ const Pagination = React.forwardRef(function Pagination(
     });
     const [prevControlledPageSize, setPrevControlledPageSize] = useState(controlledPageSize);
 
-    const className = cn("pagination bg-neutral-100 border-t border-solid border-neutral-300 flex items-center text-md justify-between", `pagination--${size}`, customClassName);
+    const className = cn("pagination bg-neutral-100 border-t border-solid border-neutral-300 flex flex-wrap items-center text-md justify-between", `pagination--${size}`, customClassName);
     const totalPages = totalItems ? Math.max(Math.ceil(totalItems / pageSize), 1) : 1;
     const backButtonDisabled = disabled || page === 1;
     const backButtonClasses = cn("flex p-1 w-10 items-center justify-center cursor-pointer hover:bg-neutral-100", backButtonDisabled ? "opacity-50 cursor-not-allowed" : "");
@@ -198,7 +228,7 @@ const Pagination = React.forwardRef(function Pagination(
         "flex p-1 items-center w-10 justify-center cursor-pointer hover:bg-neutral-100",
         forwardButtonDisabled || isLastPage ? "opacity-50 cursor-not-allowed" : ""
     );
-    const selectItems = renderSelectItems(totalPages);
+    const selectItems = totalPages > MAX_PAGE_OPTIONS ? null : renderSelectItems(totalPages);
 
     // Sync state with props
     if (controlledPage !== prevControlledPage) {
@@ -325,20 +355,21 @@ const Pagination = React.forwardRef(function Pagination(
                         : itemRangeText(Math.min(pageSize * (page - 1) + 1, totalItems), Math.min(page * pageSize, totalItems), totalItems)}
                 </span>
             </div>
-            <span className="border-r border-solid border-neutral-300"></span>
-            <div className={`flex whitespace-nowrap`}>
+            {/* Moves under the item range when the footer is narrow (for example with the AI panel open) */}
+            <div className={`flex whitespace-nowrap ml-auto`}>
                 <span className="border-r border-solid border-neutral-300"></span>
                 {pagesUnknown ? (
                     <span className={`whitespace-nowrap flex items-center`}>{pageText(page)}</span>
                 ) : (
-                    <div className="flex gap-1 pr-4">
-                        <Select
-                            onValueChange={handlePageInputChange}
-                            value={page.toString()}
-                            disabled={pageInputDisabled || disabled}>
-                            <SelectTrigger className={`border-0 shadow-none`}>{page}</SelectTrigger>
-                            <SelectContent>{selectItems}</SelectContent>
-                        </Select>
+                    <div className="flex gap-2 pl-3 pr-4">
+                        {selectItems ? (
+                            <Select onValueChange={handlePageInputChange} value={page.toString()} disabled={pageInputDisabled || disabled}>
+                                <SelectTrigger className={`border-0 shadow-none`}>{page}</SelectTrigger>
+                                <SelectContent>{selectItems}</SelectContent>
+                            </Select>
+                        ) : (
+                            <PageNumberInput page={page} totalPages={totalPages} disabled={pageInputDisabled || disabled} onChange={handlePageInputChange} />
+                        )}
 
                         <span className="flex items-center opacity-50">{pageRangeText(page, totalPages)}</span>
                     </div>

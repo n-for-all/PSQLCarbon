@@ -1,7 +1,7 @@
 import { ActionFunction, LoaderFunction, redirect } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import db, { ConnectionData } from "~/lib/db";
-import { getUserSession } from "~/utils/session.server";
+import { getSessionConnection } from "~/utils/session.server";
 import { SyntheticEvent, useState } from "react";
 import { convertBytes, isValidCollectionName, isValidDatabaseName } from "~/utils/functions";
 import Title from "~/components/title";
@@ -15,8 +15,7 @@ import { Button } from "~/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "~/ui/alert";
 import { Input, SearchInput } from "~/ui/input";
 export const loader: LoaderFunction = async ({ request, params }) => {
-    const session = await getUserSession(request);
-    const connection = session.get("connection");
+    const connection = await getSessionConnection(request);
     
     if (!connection) {
         return redirect("/connections");
@@ -66,8 +65,7 @@ export const action: ActionFunction = async ({ request }) => {
 
             const { dbName } = jsonQuery.create;
 
-            const session = await getUserSession(request);
-            const connection = session.get("connection");
+            const connection = await getSessionConnection(request);
             if (!connection) {
                 return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
             }
@@ -87,8 +85,7 @@ export const action: ActionFunction = async ({ request }) => {
                 return Response.json({ status: "error", message: "Invalid database" }, { status: 500 });
             }
 
-            const session = await getUserSession(request);
-            const connection = session.get("connection");
+            const connection = await getSessionConnection(request);
             if (!connection) {
                 return Response.json({ status: "error", message: "No connection selected" }, { status: 400 });
             }

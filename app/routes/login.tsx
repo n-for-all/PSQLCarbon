@@ -1,7 +1,9 @@
-import { useActionData, Form } from "@remix-run/react";
-import { ActionFunction, TypedResponse } from "@remix-run/node";
-import { validateUsername } from "~/utils/functions";
-import { checkUserSession, createUserSession, login } from "~/utils/session.server";
+import { useActionData, useLoaderData, Form } from "@remix-run/react";
+import { ActionFunction, LoaderFunction, TypedResponse } from "@remix-run/node";
+import { validatePassword, validateUsername } from "~/utils/functions";
+import { checkUserSession, createUserSession, isDesktop, login, register } from "~/utils/session.server";
+import { randomBytes } from "node:crypto";
+import { userDb } from "~/utils/db.server";
 import { Button } from "@ui/button";
 import React, { useEffect } from "react";
 import { Logo } from "~/components/logo";
@@ -21,21 +23,48 @@ type ActionResponse = {
     };
 };
 
+// The first account is created from the login page, this is how the desktop app (and fresh installs) get an admin user
+const needsSetup = async () => (await userDb.user.count()) === 0;
+
+export const loader: LoaderFunction = async ({ request }) => {
+    if (isDesktop()) {
+        // Sign in to the single local account, it is created on first launch with a random password nobody needs to know
+        const user = (await userDb.user.findFirst({ orderBy: { createdAt: "asc" } })) ?? (await register({ username: "local", password: randomBytes(24).toString("hex") }));
+        const redirectTo = new URL(request.url).searchParams.get("redirectTo") || "/";
+        return createUserSession(user.id, redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/");
+    }
+    return Response.json({ setup: await needsSetup() });
+};
+
 export const action: ActionFunction = async ({ request }): Promise<TypedResponse<ActionResponse>> => {
     try {
         const form = await request.formData();
-        // console.log("form", request);
         const username = form.get("username");
         const password = form.get("password");
         const redirectTo = form.get("redirectTo") || "/";
-        console.log("username, password, redirectTo", username, password, redirectTo);
         if (typeof username !== "string" || typeof password !== "string" || typeof redirectTo !== "string") {
             return Response.json({
                 status: "error",
                 message: `The Username and Password combination is incorrect`,
-                details: { username, password, redirectTo },
             });
         }
+
+        if (form.get("intent") === "setup") {
+            if (!(await needsSetup())) {
+                return Response.json({ status: "error", message: "An admin account already exists, please login" });
+            }
+            const errors = {
+                username: validateUsername(username),
+                password: validatePassword(password),
+            };
+            if (Object.values(errors).some(Boolean)) {
+                return Response.json({ status: "error", errors });
+            }
+            checkUserSession(request);
+            const user = await register({ username, password });
+            return createUserSession(user.id, "/connections");
+        }
+
         const errors = {
             username: validateUsername(username),
             password: !password || password.trim() == "" ? "Please enter your password" : false,
@@ -65,7 +94,7 @@ export const action: ActionFunction = async ({ request }): Promise<TypedResponse
 
 export default function LoginRoute() {
     const actionData = useActionData<ActionResponse>();
-    // const [searchParams] = useSearchParams();
+    const { setup } = useLoaderData<{ setup: boolean }>();
 
     const { toast } = useToast();
     useEffect(() => {
@@ -84,10 +113,13 @@ export default function LoginRoute() {
                 <div className="w-full max-w-md mx-auto">
                     <Logo className={"h-10 mx-auto"} /> 
                     <div className="w-full p-10 mt-5 border border-solid bg-neutral-50 border-neutral-100">
-                        <h3 className="block mb-1 text-3xl font-bold">Login</h3>
-                        <small className="block mb-6 text-xs opacity-50 leading-1">Please enter your username and password below:</small>
+                        <h3 className="block mb-1 text-3xl font-bold">{setup ? "Create admin account" : "Login"}</h3>
+                        <small className="block mb-6 text-xs opacity-50 leading-1">
+                            {setup ? "No users exist yet, choose the username and password for the admin account:" : "Please enter your username and password below:"}
+                        </small>
                         {actionData?.status == "error" && actionData?.message && <div className="px-3 py-2 mb-4 text-sm text-red-600 border border-red-200 rounded bg-red-50">{actionData.message}</div>}
                         <Form method="post">
+                            {setup && <input type="hidden" name="intent" value="setup" />}
                             <div className="flex flex-col gap-10">
                                 <Input
                                     id="username"
@@ -110,7 +142,7 @@ export default function LoginRoute() {
                                     invalidText={actionData?.errors?.password ? actionData?.errors?.password : undefined}
                                 />
                                 <Button iconPosition="right" size="sm" icon={<ArrowRightIcon />} type="submit">
-                                    Login
+                                    {setup ? "Create account" : "Login"}
                                 </Button>
                             </div>
                         </Form>

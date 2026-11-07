@@ -1,8 +1,8 @@
 import { useActionData, Form } from "@remix-run/react";
 import { userDb } from "../utils/db.server";
-import { ActionFunction, TypedResponse } from "@remix-run/node";
+import { ActionFunction, LoaderFunction, TypedResponse, redirect } from "@remix-run/node";
 import { validatePassword, validateUsername } from "~/utils/functions";
-import { register } from "~/utils/session.server";
+import { isDesktop, register, requireUser } from "~/utils/session.server";
 import { PlusIcon } from "@primer/octicons-react";
 
 import React, { useEffect } from "react";
@@ -20,7 +20,19 @@ type ActionResponse = {
     };
 };
 
+// Only signed in users can add users, the desktop app has a single local user
+const guard = async (request: Request) => {
+    if (isDesktop()) throw redirect("/");
+    await requireUser(request, "/login");
+};
+
+export const loader: LoaderFunction = async ({ request }) => {
+    await guard(request);
+    return null;
+};
+
 export const action: ActionFunction = async ({ request }): Promise<TypedResponse<ActionResponse>> => {
+    await guard(request);
     const form = await request.formData();
     const username = form.get("username");
     const password = form.get("password");

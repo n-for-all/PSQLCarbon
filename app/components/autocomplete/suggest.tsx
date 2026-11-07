@@ -24,7 +24,7 @@ const styles = {
 		position: "absolute" as any,
 		minWidth: "150px",
 		minHeight: "34px",
-		background: "#FFF",
+		background: "rgb(var(--c-white))",
 		boxShadow: "1px 3px 28px rgba(0,0,0,0.4)",
 		animation: "200ms ease-out",
 		willChange: "transform, opacity",
@@ -34,8 +34,8 @@ const styles = {
 	},
 
 	item: {
-		background: "#FFF",
-		color: "#222",
+		background: "rgb(var(--c-white))",
+		color: "rgb(var(--c-neutral-900))",
 		listStyle: "none",
 		padding: ".5em .5em",
 	},

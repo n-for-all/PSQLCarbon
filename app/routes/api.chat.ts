@@ -1,127 +1,223 @@
-import { ActionFunction } from "@remix-run/node";
-import { requireUser } from "~/utils/session.server";
+import { ActionFunction, LoaderFunction } from "@remix-run/node";
+import { getSessionConnection, requireUser } from "~/utils/session.server";
 import { userDb } from "~/utils/db.server";
-import https from "https";
+import dbConnection from "~/lib/db";
+import { AI_NOT_CONFIGURED, DEFAULT_AI_BASE_URL, DEFAULT_AI_MODEL, isAiConfigured } from "~/utils/ai";
+import { runAgent, unansweredToolCalls, type AgentEvent, type ChatMessage } from "~/lib/ai/agent.server";
+import { WRITE_MODES, type WriteMode } from "~/lib/ai/tools.server";
+
+const parseMessages = (messages: string): ChatMessage[] => {
+    try {
+        const parsed = JSON.parse(messages);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+/**
+ * GET /api/chat?database=db       sessions, memories and settings for the current connection
+ * GET /api/chat?session=id        one session with its messages
+ */
+export const loader: LoaderFunction = async ({ request }) => {
+    const user = await requireUser(request, "/login");
+    const connection = await getSessionConnection(request);
+    if (!connection) {
+        return Response.json({ message: "No connection selected" }, { status: 400 });
+    }
+
+    const url = new URL(request.url);
+    const sessionId = url.searchParams.get("session");
+    if (sessionId) {
+        const session = await userDb.chatSession.findFirst({ where: { id: sessionId, userId: user.id, connectionId: connection.id } });
+        if (!session) {
+            return Response.json({ message: "Chat not found" }, { status: 404 });
+        }
+        return Response.json({ session: { ...session, messages: parseMessages(session.messages) } });
+    }
+
+    const database = url.searchParams.get("database");
+    const [sessions, memories, settings] = await Promise.all([
+        userDb.chatSession.findMany({
+            where: { userId: user.id, connectionId: connection.id },
+            select: { id: true, title: true, database: true, updatedAt: true },
+            orderBy: { updatedAt: "desc" },
+            take: 100,
+        }),
+        database
+            ? userDb.chatMemory.findMany({ where: { userId: user.id, connectionId: connection.id, database }, orderBy: { createdAt: "asc" } })
+            : Promise.resolve([]),
+        userDb.user.findUnique({ where: { id: user.id }, select: { aiWriteMode: true, openAiModel: true, openAiApiKey: true, openAiBaseUrl: true } }),
+    ]);
+
+    return Response.json({
+        sessions,
+        memories,
+        settings: { writeMode: settings?.aiWriteMode || "ask", model: settings?.openAiModel || DEFAULT_AI_MODEL, configured: isAiConfigured(settings) },
+    });
+};
 
 export const action: ActionFunction = async ({ request }) => {
     try {
         const user = await requireUser(request, "/login");
-        const body = await request.json();
-        const { prompt, history = [], db, table, columns } = body;
-
-        const dbUser = await userDb.user.findUnique({ where: { id: user.id } });
-
-        if (!dbUser?.openAiApiKey) {
-            return Response.json({ message: "OpenAI API Key is not configured. Please go to Profile settings to configure it." }, { status: 400 });
-        }
-
-        const rawBaseUrl = dbUser.openAiBaseUrl || "https://api.openai.com/v1";
-        const baseUrl = rawBaseUrl.replace(/\/chat\/completions\/?$/, "").replace(/\/+$/, "");
-        const model = dbUser.openAiModel || "gpt-4o";
-
-        // Query the schema
-        const session = await (await import("~/utils/session.server")).getUserSession(request);
-        const connection = session.get("connection");
+        const connection = await getSessionConnection(request);
         if (!connection) {
             return Response.json({ message: "No connection selected" }, { status: 400 });
         }
-        const mongo = await (await import("~/lib/db")).default(connection);
-        const pool = mongo.getPool(db);
-        let schemaInfo = "";
+        const body = await request.json();
 
-        if (pool) {
-            try {
-                const schemaQuery = `
-                    SELECT table_name, column_name, data_type 
-                    FROM information_schema.columns 
-                    WHERE table_schema = 'public'
-                    ORDER BY table_name, ordinal_position;
-                `;
-                const schemaRes = await pool.query(schemaQuery);
-                const tablesMap = new Map<string, string[]>();
-
-                for (const row of schemaRes.rows) {
-                    if (!tablesMap.has(row.table_name)) {
-                        tablesMap.set(row.table_name, []);
-                    }
-                    tablesMap.get(row.table_name)!.push(`${row.column_name} (${row.data_type})`);
+        switch (body.intent) {
+            case "settings": {
+                if (!WRITE_MODES.includes(body.writeMode)) {
+                    return Response.json({ message: "Invalid mode" }, { status: 400 });
                 }
-
-                const tablesContext = Array.from(tablesMap.entries())
-                    .map(([tbl, cols]) => `- Table "${tbl}": ${cols.join(", ")}`)
-                    .join("\n");
-
-                schemaInfo = `\nHere is the full schema of the database:\n${tablesContext}\n`;
-            } catch (e) {
-                console.error("Failed to load full schema", e);
+                await userDb.user.update({ where: { id: user.id }, data: { aiWriteMode: body.writeMode } });
+                return Response.json({ ok: true });
             }
-        }
-
-        const systemPrompt = `You are an AI assistant that writes PostgreSQL queries. 
-The user is querying a PostgreSQL database named "${db}".
-The currently active table in the UI is "${table}".
-${schemaInfo}
-Your task is to help the user with their database. You can answer questions conversationally based on the schema information provided.
-CRITICAL INSTRUCTION: If you provide a SQL query, you MUST wrap it in markdown SQL code blocks (\`\`\`sql ... \`\`\`). NEVER provide raw SQL outside of a code block.
-IMPORTANT: ALWAYS wrap table names and column names in double quotes (e.g. "TableName") in your SQL queries to prevent case-sensitivity errors in PostgreSQL.
-You can include explanations or conversational text outside of the code blocks.`;
-
-        const targetUrl = `${baseUrl}/chat/completions`;
-
-        const reqUrl = new URL(request.url);
-        const referer = reqUrl.origin && reqUrl.origin !== "null" ? reqUrl.origin : "http://localhost:5173";
-        const response = await fetch(targetUrl, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${dbUser.openAiApiKey}`,
-                "Referer": referer,
-                "HTTP-Referer": referer,
-                "Origin": referer,
-                "X-Title": "PSQL Carbon AI Assistant",
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    ...history.map((msg: any) => ({ role: msg.role, content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) })),
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.1
-            })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error("OpenAI API Error:", errText);
-
-            let detailedError = response.statusText;
-            try {
-                const parsed = JSON.parse(errText);
-                if (parsed.error && parsed.error.message) {
-                    detailedError = parsed.error.message;
-                } else if (parsed.message) {
-                    detailedError = parsed.message;
-                } else {
-                    detailedError = errText;
-                }
-            } catch {
-                detailedError = errText || response.statusText;
+            case "delete_session": {
+                await userDb.chatSession.deleteMany({ where: { id: String(body.sessionId), userId: user.id } });
+                return Response.json({ ok: true });
             }
-
-            return Response.json({ message: `AI API Error: ${detailedError} (URL: ${targetUrl})` }, { status: 500 });
+            case "delete_memory": {
+                await userDb.chatMemory.deleteMany({ where: { id: String(body.memoryId), userId: user.id } });
+                return Response.json({ ok: true });
+            }
+            case "send":
+            case "resume":
+                return await runChat(request, user.id, connection, body);
+            default:
+                return Response.json({ message: "Invalid request" }, { status: 400 });
         }
-
-        const data = await response.json();
-        let sql = data.choices[0].message.content.trim();
-
-
-
-        return Response.json({ sql }, { status: 200 });
-
     } catch (e: any) {
+        if (e instanceof Response) {
+            return e;
+        }
         console.error("Chat Error:", e);
         return Response.json({ message: e.message }, { status: 500 });
     }
 };
+
+async function runChat(request: Request, userId: string, connection: NonNullable<Awaited<ReturnType<typeof getSessionConnection>>>, body: any) {
+    const dbUser = await userDb.user.findUnique({ where: { id: userId } });
+    if (!dbUser || !isAiConfigured(dbUser)) {
+        return Response.json({ message: AI_NOT_CONFIGURED }, { status: 400 });
+    }
+
+    // Load or create the chat, a chat stays on the database it was started on
+    let session = body.sessionId ? await userDb.chatSession.findFirst({ where: { id: String(body.sessionId), userId, connectionId: connection.id } }) : null;
+    if (body.sessionId && !session) {
+        return Response.json({ message: "Chat not found" }, { status: 404 });
+    }
+
+    const mongo = await dbConnection(connection);
+    const database = session?.database || (typeof body.database === "string" && body.database) || mongo.defaultDb;
+    if (!mongo.isAllowed(database)) {
+        return Response.json({ message: "Access to this database is not allowed" }, { status: 403 });
+    }
+    const pool = mongo.getPool(database);
+    if (!pool) {
+        return Response.json({ message: "Database connection failed" }, { status: 500 });
+    }
+
+    const messages = session ? parseMessages(session.messages) : [];
+    if (body.intent === "send") {
+        const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+        if (!prompt) {
+            return Response.json({ message: "Message is empty" }, { status: 400 });
+        }
+        // A new message replaces any change still waiting for approval
+        for (const call of unansweredToolCalls(messages)) {
+            messages.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content: JSON.stringify({ error: "Not run, the user sent a new message instead" }),
+                display: { tool: call.function.name, skipped: true },
+            });
+        }
+        messages.push({ role: "user", content: prompt, createdAt: Date.now() });
+    }
+
+    if (!session) {
+        const prompt = String(body.prompt);
+        session = await userDb.chatSession.create({
+            data: { title: prompt.length > 60 ? prompt.slice(0, 60) + "…" : prompt, database, connectionId: connection.id, userId, messages: JSON.stringify(messages) },
+        });
+    } else {
+        await userDb.chatSession.update({ where: { id: session.id }, data: { messages: JSON.stringify(messages) } });
+    }
+    const sessionId = session.id;
+
+    const rawBaseUrl = dbUser.openAiBaseUrl || DEFAULT_AI_BASE_URL;
+    const reqUrl = new URL(request.url);
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+        async start(controller) {
+            const emit = (event: AgentEvent | { type: string; [key: string]: unknown }) => {
+                try {
+                    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                } catch {
+                    // the client went away, the chat is still saved
+                }
+            };
+            emit({ type: "session", session: { id: sessionId, title: session!.title, database } });
+
+            try {
+                await runAgent({
+                    messages,
+                    database,
+                    resolvePool: (name?: string) => {
+                        const target = name || database;
+                        if (!mongo.isAllowed(target)) {
+                            throw new Error(`Access to the database "${target}" is not allowed on this connection`);
+                        }
+                        const targetPool = name ? mongo.getPool(target) : pool;
+                        if (!targetPool) {
+                            throw new Error(`Could not connect to the database "${target}"`);
+                        }
+                        return { pool: targetPool, database: target };
+                    },
+                    listDatabases: () => mongo.getDatabases(),
+                    table: typeof body.table === "string" ? body.table : null,
+                    writeMode: (WRITE_MODES.includes(dbUser.aiWriteMode as WriteMode) ? dbUser.aiWriteMode : "ask") as WriteMode,
+                    userId,
+                    connectionId: connection.id,
+                    memories: await userDb.chatMemory.findMany({ where: { userId, connectionId: connection.id, database }, select: { id: true, content: true }, orderBy: { createdAt: "asc" } }),
+                    api: {
+                        baseUrl: rawBaseUrl.replace(/\/chat\/completions\/?$/, "").replace(/\/+$/, ""),
+                        apiKey: dbUser.openAiApiKey || "",
+                        model: dbUser.openAiModel || DEFAULT_AI_MODEL,
+                        referer: reqUrl.origin && reqUrl.origin !== "null" ? reqUrl.origin : "http://localhost:5173",
+                    },
+                    approvals: body.intent === "resume" && body.toolCallId ? { [String(body.toolCallId)]: body.approved === true } : undefined,
+                    signal: request.signal,
+                    emit,
+                    save: async (current) => {
+                        await userDb.chatSession.update({ where: { id: sessionId }, data: { messages: JSON.stringify(current) } });
+                    },
+                });
+            } catch (e: any) {
+                if (e?.name !== "AbortError") {
+                    console.error("Chat Error:", e);
+                    emit({ type: "error", message: e?.message || String(e) });
+                }
+            } finally {
+                emit({ type: "done" });
+                try {
+                    controller.close();
+                } catch {
+                    // already closed
+                }
+            }
+        },
+    });
+
+    return new Response(stream, {
+        headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            // no-transform keeps compression middleware from buffering the stream
+            "Cache-Control": "no-store, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    });
+}

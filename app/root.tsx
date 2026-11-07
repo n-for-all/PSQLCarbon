@@ -1,6 +1,10 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from "@remix-run/react";
+import type { LinksFunction, LoaderFunction } from "@remix-run/node";
+import os from "node:os";
+import { hasJoinedEarlyAccess } from "~/lib/early-access.server";
 import { Toaster } from "~/ui/toaster";
+import { ThemeProvider } from "next-themes";
+import { PageLoadingBar } from "~/components/page-loading";
 
 import "./tailwind.css";
 
@@ -15,9 +19,25 @@ export const links: LinksFunction = () => [
     },
 ];
 
+export const loader: LoaderFunction = async () => {
+    const desktop = process.env.PSQLCARBON_DESKTOP === "1";
+    // The desktop app runs on the same machine as this server, so its platform is the server's.
+    // The system is only shared there, for bug reports, a web server's isn't the visitor's business.
+    const system = desktop ? `${{ darwin: "macOS", win32: "Windows", linux: "Linux" }[process.platform] || process.platform} (${os.type()} ${os.release()}, ${process.arch})` : null;
+    return Response.json({
+        desktop,
+        macTitlebar: desktop && process.platform === "darwin",
+        appStore: process.env.PSQLCARBON_APP_STORE === "1",
+        system,
+        earlyAccessJoined: hasJoinedEarlyAccess(),
+    });
+};
+
 export function Layout({ children }: { children: React.ReactNode }) {
+    const macTitlebar = useRouteLoaderData<{ macTitlebar?: boolean }>("root")?.macTitlebar;
     return (
-        <html lang="en">
+        // next-themes sets the theme class on <html> before React hydrates, so the title bar is a data attribute
+        <html lang="en" suppressHydrationWarning data-titlebar={macTitlebar ? "mac" : undefined}>
             <head>
                 <meta charSet="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,15 +45,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Links />
             </head>
             <body>
-                {children}
+                <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+                    {children}
+                    <Toaster />
+                </ThemeProvider>
                 <ScrollRestoration />
                 <Scripts />
-                <Toaster />
             </body>
         </html>
     );
 }
 
 export default function App() {
-    return <Outlet />;
+    return (
+        <>
+            <PageLoadingBar />
+            <Outlet />
+        </>
+    );
 }

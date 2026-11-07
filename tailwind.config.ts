@@ -1,6 +1,11 @@
 import type { Config } from "tailwindcss";
 
+// Palettes come from CSS variables (app/tailwind.scss) so they switch with the theme
+const themed = (name: string) => Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((shade) => [shade, `rgb(var(--c-${name}-${shade}) / <alpha-value>)`]));
+const variable = (name: string) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 export default {
+    darkMode: "class",
     content: ["./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}"],
     theme: {
         extend: {
@@ -17,13 +22,22 @@ export default {
                 "5xl": "3.052rem",
             },
             colors: {
+                neutral: themed("neutral"),
+                gray: themed("neutral"),
+                red: themed("red"),
+                green: themed("green"),
+                amber: themed("amber"),
+                blue: themed("blue"),
+                yellow: themed("yellow"),
+                pink: themed("pink"),
+                white: variable("white"),
                 primary: "#0f62fe",
-                tree: "#fff",
-                popover: "#f8f8f8",
-                "popover-foreground": "#000",
-                tooltip: "#000000",
+                tree: variable("white"),
+                popover: variable("surface-raised"),
+                "popover-foreground": variable("popover-fg"),
+                tooltip: variable("tooltip"),
                 "tooltip-foreground": "#ffffff",
-                secondary: "#e3e3e3",
+                secondary: variable("secondary"),
                 "primary-foreground": "#fff",
                 error: "#e53e3e",
                 "error-foreground": "#fff",
@@ -33,7 +47,7 @@ export default {
                 "warning-600": "#b7791f",
                 info: "#3182ce",
                 "info-600": "#2c5282",
-                background: "#fff",
+                background: variable("white"),
                 // ...
             },
             borderRadius: {

@@ -17,7 +17,7 @@ const NativeInput = React.forwardRef<HTMLInputElement, NativeInputProps>(({ clas
         <input
             type={type}
             className={cn(
-                "flex h-9 w-full border-b border-black bg-white px-3 py-1 text-base transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+                "flex h-9 w-full border-b border-neutral-900 bg-white px-3 py-1 text-base transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
                 className,
                 additionClassName
             )}
@@ -41,7 +41,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ invalidText, hel
             {labelText && !hideLabel ? <label className="text-sm tracking-wide">{labelText}</label> : null}
             <NativeInput {...props} />
             {invalidText ? <small className="text-red-500">{invalidText}</small> : null}
-            {helperText ? <small className="text-xs text-black opacity-50">{helperText}</small> : null}
+            {helperText ? <small className="text-xs text-neutral-900 opacity-50">{helperText}</small> : null}
         </div>
     );
 });

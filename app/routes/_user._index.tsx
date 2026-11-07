@@ -2,19 +2,30 @@ import { LoaderFunction, redirect } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import db, { ConnectionData } from "~/lib/db";
 import { Table, TableBody, TableCell, TableRow } from "~/ui/table";
-import { getUserSession } from "~/utils/session.server";
+import { getSessionConnection } from "~/utils/session.server";
 import { Editor } from "@monaco-editor/react";
+import { SQL_EDITOR_OPTIONS, useMonacoTheme } from "~/utils/editor";
 import { AlertMessage } from "~/components/alert";
 import { CsvTable } from "~/components/csv_table";
+import { QueryLibrary } from "~/components/query-library";
+import { ExportButtons } from "~/components/export-buttons";
 import { useState, useEffect, SyntheticEvent } from "react";
 import { Button } from "~/ui/button";
 import { ArrowRightIcon } from "@primer/octicons-react";
 import { Terminal } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/ui/select";
 
+const formatUptime = (seconds: unknown) => {
+    const total = Math.floor(Number(seconds));
+    if (!isFinite(total) || total < 0) return "N/A";
+    const days = Math.floor(total / 86400);
+    const hours = Math.floor((total % 86400) / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    return [days && `${days}d`, (days || hours) && `${hours}h`, `${minutes}m`].filter(Boolean).join(" ");
+};
+
 export const loader: LoaderFunction = async ({ request }) => {
-    const session = await getUserSession(request);
-    const connection = session.get("connection");
+    const connection = await getSessionConnection(request);
     if (!connection) {
         return redirect("/connections");
     }
@@ -33,12 +44,10 @@ export const loader: LoaderFunction = async ({ request }) => {
 
     if (pool) {
         try {
-            const res = await pool.query("SELECT version();");
+            // One round trip for both, it adds up on a remote server
+            const res = await pool.query("SELECT version() AS version, extract(epoch from (now() - pg_postmaster_start_time())) AS uptime;");
             version = res.rows[0].version;
-
-            // Try to get uptime if pg_postmaster_start_time is available
-            const uptimeRes = await pool.query("SELECT extract(epoch from (now() - pg_postmaster_start_time())) as uptime;");
-            uptime = uptimeRes.rows[0].uptime;
+            uptime = res.rows[0].uptime;
         } catch (e) {
             console.error(e);
         }
@@ -62,6 +71,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 };
 
 const IdeWithAutocomplete = ({ onChange, value }: { onChange: (v: string | undefined) => void; value: string }) => {
+    const monacoTheme = useMonacoTheme();
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
@@ -73,16 +83,10 @@ const IdeWithAutocomplete = ({ onChange, value }: { onChange: (v: string | undef
         <Editor
             height="150px"
             language="pgsql"
-            theme="light"
+            theme={monacoTheme}
             value={value}
             onChange={onChange}
-            options={{
-                minimap: { enabled: false },
-                lineNumbers: "off",
-                scrollBeyondLastLine: false,
-                wordWrap: "on",
-                fontSize: 13,
-            }}
+            options={SQL_EDITOR_OPTIONS}
         />
     );
 };
@@ -98,7 +102,8 @@ export default function Dashboard() {
     const [sqlQuery, setSqlQuery] = useState("");
     const [selectedDb, setSelectedDb] = useState<string>(databases.includes("postgres") ? "postgres" : (databases[0] || ""));
     const [queryError, setQueryError] = useState("");
-    const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: any[] } | null>(null);
+    // At most MAX_RESULT_ROWS rows come back (lib/run-query.server.ts), truncated says there were more
+    const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: any[]; truncated?: boolean; command?: string; rowCount?: number | null } | null>(null);
     const queryLoading = queryFetcher.state === "submitting" || queryFetcher.state === "loading";
 
     useEffect(() => {
@@ -108,10 +113,13 @@ export default function Dashboard() {
             setQueryResult(null);
         } else {
             setQueryError("");
-            setQueryResult({ columns: queryFetcher.data.columns || [], rows: queryFetcher.data.rows || [] });
+            const { columns, rows, truncated, command, rowCount } = queryFetcher.data;
+            setQueryResult({ columns: columns || [], rows: rows || [], truncated, command, rowCount });
         }
     }, [queryFetcher.data]);
 
+    // The query behind the shown results, exports run it again
+    const [ranSql, setRanSql] = useState("");
     const executeDbSql = () => {
         if (!sqlQuery || sqlQuery.trim() === "") {
             setQueryError("Please enter a SQL query");
@@ -123,6 +131,7 @@ export default function Dashboard() {
         }
         setQueryError("");
         setQueryResult(null);
+        setRanSql(sqlQuery);
         queryFetcher.submit(
             { sql: sqlQuery, db: selectedDb },
             { method: "POST", encType: "application/json", action: "/api/query" }
@@ -136,40 +145,30 @@ export default function Dashboard() {
                 <h4 className="text-xl font-medium">Server Information</h4>
                 <p className="text-sm">Version: {info?.version}</p>
             </div>
-            <div className="flex flex-col pb-4 lg:flex-row">
-                <div className="flex-1 w-full">
-                    <Table className="flex-1 w-full bg-neutral-100 text-md">
-                        <TableBody>
-                            <TableRow className="border-b">
-                                <TableCell className="px-4 py-2 font-semibold">Node Version</TableCell>
-                                <TableCell className="px-4 py-2">{versions?.node}</TableCell>
-                            </TableRow>
-                            <TableRow className="border-b">
-                                <TableCell className="px-4 py-2 font-semibold">V8 Version</TableCell>
-                                <TableCell className="px-4 py-2">{versions?.v8}</TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                </div>
-                <div className="flex-1 w-full">
-                    <Table className="bg-neutral-100 text-md">
-                        <TableBody>
-                            <TableRow className="border-b">
-                                <TableCell className="px-4 py-2 font-semibold">Uptime</TableCell>
-                                <TableCell className="px-4 py-2">
-                                    {info?.uptime} seconds
-                                </TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                </div>
+            <div className="pb-4">
+                <Table className="w-full bg-neutral-100 text-md">
+                    <TableBody>
+                        <TableRow className="border-b">
+                            <TableCell className="px-4 py-2 font-semibold whitespace-nowrap">Uptime</TableCell>
+                            <TableCell className="px-4 py-2">{formatUptime(info?.uptime)}</TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="px-4 py-2 font-semibold whitespace-nowrap">Node Version</TableCell>
+                            <TableCell className="px-4 py-2 break-all">{versions?.node}</TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="px-4 py-2 font-semibold whitespace-nowrap">V8 Version</TableCell>
+                            <TableCell className="px-4 py-2 break-all">{versions?.v8}</TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
             </div>
 
             {/* ── Server-level Query Editor ── */}
             <div className="p-4 mt-1 mb-4 border border-solid border-neutral-300">
-                <div className="flex items-center justify-between py-1 mb-2">
-                    <div>
-                        <span className="flex items-center gap-1 text-base font-bold">
+                <div className="flex flex-wrap items-center justify-between py-1 mb-2 gap-x-4 gap-y-2">
+                    <div className="min-w-0">
+                        <span className="flex items-center gap-1 text-base font-bold whitespace-nowrap">
                             <Terminal size={15} />
                             Global Query Editor
                         </span>
@@ -177,9 +176,9 @@ export default function Dashboard() {
                     </div>
                     {databases.length > 0 && (
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Database:</span>
+                            <span className="text-sm font-medium shrink-0">Database:</span>
                             <Select value={selectedDb} onValueChange={(val) => setSelectedDb(val)}>
-                                <SelectTrigger className="w-[200px] h-8 bg-white">
+                                <SelectTrigger className="w-[200px] max-w-full h-8 bg-white">
                                     <SelectValue placeholder="Select Database" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-white">
@@ -204,6 +203,7 @@ export default function Dashboard() {
                     )}
                 </div>
                 
+                <QueryLibrary database={selectedDb} sql={sqlQuery} onLoad={setSqlQuery} refreshKey={queryFetcher.data} />
                 <div className="flex flex-col bg-white border border-neutral-200 min-h-36">
                     <div className="flex-1 overflow-auto">
                         <IdeWithAutocomplete
@@ -227,8 +227,13 @@ export default function Dashboard() {
                             Execute SQL
                         </Button>
                         {queryResult && (
-                            <span className="text-xs opacity-60">
-                                {queryResult.rows.length} row{queryResult.rows.length !== 1 ? "s" : ""} returned
+                            <span className="flex flex-wrap items-center gap-3">
+                                <span className="text-xs opacity-60">
+                                    {queryResult.truncated
+                                        ? `First ${queryResult.rows.length.toLocaleString()} rows shown, export for all of them`
+                                        : `${queryResult.rows.length} row${queryResult.rows.length !== 1 ? "s" : ""} returned`}
+                                </span>
+                                {queryResult.columns?.length > 0 && <ExportButtons database={selectedDb} sql={ranSql} />}
                             </span>
                         )}
                     </div>
@@ -241,7 +246,9 @@ export default function Dashboard() {
                 )}
                 {queryResult && queryResult.rows.length === 0 && (
                     <div className="mt-3 px-3 py-2 text-sm text-neutral-500 border border-neutral-200 bg-neutral-50">
-                        Query executed successfully — no rows returned.
+                        {queryResult.command && queryResult.command !== "SELECT"
+                            ? `${queryResult.command} changed ${(queryResult.rowCount ?? 0).toLocaleString()} row${queryResult.rowCount === 1 ? "" : "s"}`
+                            : "Query executed successfully — no rows returned."}
                     </div>
                 )}
             </div>

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-<a href="https://opensource.org/licenses/Apache-2.0">
+<a href="https://opensource.org/licenses/MIT">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
 </a>
 </p>
@@ -91,13 +91,18 @@ Or if you want to install a non-global copy:
     OR
     pnpm add psqlcarbon
 
-Then create the first user using the terminal ex:
+Then open the app and create the admin account on the first screen, or create the first user using the terminal ex:
 
     cd node_modules/psqlcarbon && node console/user.js user --create --username USERNAME --password YOUR_PASSWORD
 
 You can also delete the user using the terminal ex:
 
     cd node_modules/psqlcarbon && node console/user.js user --delete --username USERNAME
+
+Forgot your username or password? List the usernames and reset a password from the terminal:
+
+    cd node_modules/psqlcarbon && node console/user.js user --list
+    cd node_modules/psqlcarbon && node console/user.js user --reset --username USERNAME --password NEW_PASSWORD
 
 **After Installation:**
 
@@ -124,7 +129,14 @@ or if you installed it globally, you can immediately start psqlcarbon like this:
 
 ## Can't login?
 
-You must be using https to login otherwise you need to add SECURE_COOKIE=0 to your .env file in the root of your project
+You must be using https to login otherwise you need to add SECURE_COOKIE=0 to your .env file in the root of your project. If you forgot your username or password, see the `--list` and `--reset` commands above.
+
+## Desktop app (Electron)
+
+The desktop app runs PSQLCarbon in its own window, there is no login since it only accepts requests from that window. Its data (saved connections and settings) is stored in the OS user data folder, e.g. `~/Library/Application Support/PSQLCarbon` on macOS.
+
+    pnpm app          # build and run the desktop app
+    pnpm app:dist     # build installers into dist-electron/ (dmg on macOS, nsis on Windows, AppImage on Linux)
 
 ## Usage (Docker)
 

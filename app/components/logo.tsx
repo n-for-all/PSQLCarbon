@@ -2,7 +2,7 @@ export const Logo = ({ className }) => {
     return (
         <svg className={className} viewBox="0 0 3098 390" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
             <g stroke="none" strokeWidth={1} fill="none" fillRule="evenodd">
-                <g transform="translate(-1.000000, 0.000000)" fill="#000000" fillRule="nonzero">
+                <g transform="translate(-1.000000, 0.000000)" fill="currentColor" fillRule="nonzero">
                     <g transform="translate(1.441518, 0.229000)">
                         <g>
                             <path d="M0,6.591 L0,381.771 L15.21,381.771 L15.21,219.531 L87.204,219.531 C130.806,219.531 156.156,215.475 180.999,197.223 C203.307,180.999 219.024,147.03 219.024,113.061 C219.024,79.092 203.307,45.123 180.999,28.899 C156.156,10.647 131.82,6.591 87.204,6.591 L0,6.591 Z M15.21,20.28 L87.711,20.28 C130.299,20.28 151.593,25.35 172.887,41.067 C191.139,54.249 203.814,84.162 203.814,113.568 C203.814,141.96 191.139,171.873 172.887,185.055 C151.593,200.772 129.792,205.842 87.711,205.842 L15.21,205.842 L15.21,20.28 Z" />

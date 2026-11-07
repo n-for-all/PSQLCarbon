@@ -6,9 +6,13 @@ import ActionableNotification from "~/ui/actionable-notification";
 import { Button } from "~/ui/button";
 import { Input } from "~/ui/input";
 import { validatePassword } from "~/utils/functions";
-import { logout, requireUser, updatePassword } from "~/utils/session.server";
+import { isDesktop, logout, requireUser, updatePassword } from "~/utils/session.server";
+import { useIsDesktop } from "~/utils/desktop";
 import { userDb } from "~/utils/db.server";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/ui/tabs";
+import { AiSettingsForm } from "~/components/ai-settings-form";
+import { normalizeBaseUrl } from "~/utils/ai";
+import { readProviders } from "~/utils/ai.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
     const user = await requireUser(request, "/login?redirect=/profile");
@@ -27,15 +31,38 @@ export const action: ActionFunction = async ({ request }) => {
     const formData = await request.formData();
     const intent = formData.get("intent");
 
-    if (intent === "update_ai_settings") {
-        const openAiApiKey = formData.get("openAiApiKey") as string;
-        const openAiBaseUrl = formData.get("openAiBaseUrl") as string;
-        const openAiModel = formData.get("openAiModel") as string;
+    if (intent === "update_ai_settings" || intent === "forget_ai_key") {
+        const saved = await userDb.user.findUnique({ where: { id: user.id } });
+        if (!saved) return Response.json({ formError: "User not found" });
+        const providers = readProviders(saved);
+        const base = normalizeBaseUrl(formData.get("openAiBaseUrl") as string);
+        const active = normalizeBaseUrl(saved.openAiBaseUrl);
 
         try {
+            if (intent === "forget_ai_key") {
+                if (providers[base]) delete providers[base].apiKey;
+                await userDb.user.update({
+                    where: { id: user.id },
+                    data: { aiProviders: JSON.stringify(providers), ...(base === active ? { openAiApiKey: null } : {}) },
+                });
+                return Response.json({ formSuccess: "The saved key was removed" });
+            }
+
+            // Every provider keeps its own key and model, switching back brings them back.
+            // An empty key field keeps this provider's saved key, keys are never sent back to the browser.
+            const typedKey = ((formData.get("openAiApiKey") as string) || "").trim();
+            const openAiModel = ((formData.get("openAiModel") as string) || "").trim();
+            const apiKey = typedKey || providers[base]?.apiKey;
+            providers[base] = { ...(apiKey ? { apiKey } : {}), model: openAiModel };
             await userDb.user.update({
                 where: { id: user.id },
-                data: { openAiApiKey, openAiBaseUrl, openAiModel },
+                data: {
+                    aiProviders: JSON.stringify(providers),
+                    openAiBaseUrl: ((formData.get("openAiBaseUrl") as string) || "").trim(),
+                    openAiModel,
+                    // Only this provider's key is active, so it's only ever sent to this provider
+                    openAiApiKey: apiKey || null,
+                },
             });
             return Response.json({ formSuccess: "AI settings updated successfully!" });
         } catch (e: any) {
@@ -44,6 +71,9 @@ export const action: ActionFunction = async ({ request }) => {
     }
 
     if (intent === "update_password") {
+        if (isDesktop()) {
+            return Response.json({ formError: "The desktop app has no password" });
+        }
         const password = formData.get("password");
         const confirm_password = formData.get("confirm_password");
         if (typeof password !== "string" || typeof confirm_password !== "string") {
@@ -88,6 +118,8 @@ export default function Dashboard() {
     const loaderData = useLoaderData<typeof loader>();
     const user = loaderData?.user;
     const navigate = useNavigate();
+    // The desktop app has no login, so only the AI settings apply there
+    const desktop = useIsDesktop();
 
     const [state, setState] = useState({
         password: "",
@@ -116,13 +148,15 @@ export default function Dashboard() {
                 </div>
 
                 <div className="bg-white border border-solid border-neutral-200 p-6">
-                    <Tabs defaultValue="profile" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 mb-6">
-                            <TabsTrigger value="profile">Profile</TabsTrigger>
-                            <TabsTrigger value="ai">AI Settings</TabsTrigger>
-                        </TabsList>
+                    <Tabs defaultValue={desktop ? "ai" : "profile"} className="w-full">
+                        {!desktop && (
+                            <TabsList className="grid w-full grid-cols-2 mb-6">
+                                <TabsTrigger value="profile">Profile</TabsTrigger>
+                                <TabsTrigger value="ai">AI Settings</TabsTrigger>
+                            </TabsList>
+                        )}
 
-                        <TabsContent value="profile">
+                        {!desktop && <TabsContent value="profile">
                             <h2 className="mb-2 text-2xl font-bold">Welcome</h2>
                             <p className="mb-6 text-sm">Please use the form below to update your profile</p>
                             <Form method="post">
@@ -186,45 +220,17 @@ export default function Dashboard() {
                                     Go to Connections
                                 </Button>
                             </div>
-                        </TabsContent>
+                        </TabsContent>}
 
                         <TabsContent value="ai">
                             <h2 className="mb-2 text-2xl font-bold">AI Assistant Settings</h2>
-                            <p className="mb-6 text-sm">Configure your OpenAI compatible endpoint for the SQL Chat Assistant.</p>
-                            <Form method="post" autoComplete="off" key={(user?.openAiBaseUrl || "ai") + (user?.openAiApiKey || "key") + (user?.openAiModel || "model")}>
-                                <input type="hidden" name="intent" value="update_ai_settings" />
-                                <div className="flex flex-col gap-5 mb-2">
-                                    <Input
-                                        id="openAiBaseUrl"
-                                        name="openAiBaseUrl"
-                                        labelText="API Base URL (e.g. https://api.openai.com/v1)"
-                                        type="text"
-                                        autoComplete="off"
-                                        defaultValue={user?.openAiBaseUrl || ""}
-                                        placeholder="https://api.openai.com/v1"
-                                    />
-                                    <Input
-                                        id="openAiApiKey"
-                                        name="openAiApiKey"
-                                        labelText="API Key"
-                                        autoComplete="new-password"
-                                        type="password"
-                                        defaultValue={user?.openAiApiKey || ""}
-                                        placeholder="sk-..."
-                                    />
-                                    <Input
-                                        id="openAiModel"
-                                        name="openAiModel"
-                                        labelText="Model Name"
-                                        type="text"
-                                        defaultValue={user?.openAiModel || "gpt-4o"}
-                                        placeholder="gpt-4o"
-                                    />
-                                    <Button size="sm" icon={<ArrowRightIcon />} type="submit">
-                                        Update AI Settings
-                                    </Button>
-                                </div>
-                            </Form>
+                            <p className="mb-6 text-sm">Choose the AI the assistant uses: a hosted provider with an API key, or a model running on your machine.</p>
+                            <AiSettingsForm
+                                key={JSON.stringify(user?.aiProviders || []) + (user?.openAiBaseUrl || "") + (user?.openAiModel || "")}
+                                baseUrl={user?.openAiBaseUrl}
+                                model={user?.openAiModel}
+                                providers={user?.aiProviders || []}
+                            />
                         </TabsContent>
                     </Tabs>
                 </div>

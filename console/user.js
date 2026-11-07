@@ -29,11 +29,23 @@ program
 	.description("Manage Users")
 	.option("-d, --delete", "delete user")
 	.option("-c, --create", "create user")
+	.option("-r, --reset", "reset the password of a user")
+	.option("-l, --list", "list usernames")
 	.option("-u, --username <char>", "Username")
 	.option("-p, --password <char>", "Password")
 	.action((options) => {
 		const client = new PrismaClient();
 		const { isStrongPassword } = validator;
+
+		if (options.list) {
+			client.user
+				.findMany({ select: { username: true }, orderBy: { createdAt: "asc" } })
+				.then((users) => {
+					console.log(users.length ? users.map((user) => user.username).join("\n") : chalk.yellow("No users found"));
+				})
+				.catch((error) => console.error(chalk.red(error.message)));
+			return;
+		}
 
 		if (!options.username || !isUsername(options.username)) {
 			console.log(chalk.red("Usernames must be at least 3 characters long and no spaces included: "), chalk.red(options.username));
@@ -61,6 +73,18 @@ program
 			console.log(
 				chalk.red("Password must be at least 6 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character")
 			);
+			return;
+		}
+
+		if (options.reset) {
+			client.user
+				.update({ where: { username: options.username }, data: { passwordHash: bcrypt.hashSync(options.password, 10) } })
+				.then(() => {
+					console.log(chalk.bgGreen("Password updated successfully"));
+				})
+				.catch(() => {
+					console.error(chalk.red("User not found"));
+				});
 			return;
 		}
 

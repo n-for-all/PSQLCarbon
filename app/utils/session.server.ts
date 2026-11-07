@@ -1,7 +1,14 @@
 import bcrypt from "bcryptjs";
 import { createCookieSessionStorage, redirect, TypedResponse } from "@remix-run/node";
 import { userDb } from "./db.server";
+import { providerSummaries } from "./ai.server";
+import type { ProviderSummary } from "./ai";
 import type { DbConnection, User as PrismaUser } from "@prisma/client";
+
+/**
+ * Set by the desktop app (electron/main.js), there is no login since the app is only reachable from its own window
+ */
+export const isDesktop = () => process.env.PSQLCARBON_DESKTOP === "1";
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -14,7 +21,9 @@ export type User = {
 	updatedAt: Date;
 	firstName?: string;
 	newsletter?: boolean;
-	openAiApiKey?: string | null;
+	hasOpenAiApiKey?: boolean;
+	/** Saved providers with a hint of their key, the keys never leave the server */
+	aiProviders?: ProviderSummary[];
 	openAiBaseUrl?: string | null;
 	openAiModel?: string | null;
 };
@@ -25,7 +34,8 @@ function cleanupUser<TResult = User, TUser extends Partial<PrismaUser> = PrismaU
 		createdAt: user.createdAt,
 		updatedAt: user.updatedAt,
 		username: user.username,
-		openAiApiKey: user.openAiApiKey,
+		hasOpenAiApiKey: !!user.openAiApiKey,
+		aiProviders: providerSummaries(user),
 		openAiBaseUrl: user.openAiBaseUrl,
 		openAiModel: user.openAiModel,
 	} as unknown as TResult;
@@ -55,6 +65,26 @@ export async function requireUser(request: Request, redirectToIfNotAvaliable?: s
 export async function getUserDbConnection(userId, id) {
 	return await userDb.dbConnection.findUnique({ where: { userId, id } });
 }
+/**
+ * Only the connection id is kept in the (signed, not encrypted) session cookie,
+ * the credentials are always loaded from the database.
+ */
+export async function getSessionConnection(request: Request) {
+	const session = await getUserSession(request);
+	const userId = session.get("userId");
+	const connectionId = session.get("connectionId");
+	if (typeof userId !== "string") {
+		return null;
+	}
+	const connection = typeof connectionId === "string" ? await userDb.dbConnection.findUnique({ where: { id: connectionId, userId } }) : null;
+	if (connection) {
+		return connection;
+	}
+	// Nothing selected (or it was deleted): use the only saved connection, route loaders run in parallel so they all need the same answer
+	const connections = await userDb.dbConnection.findMany({ where: { userId }, take: 2 });
+	return connections.length === 1 ? connections[0] : null;
+}
+
 export async function getUserDbConnections(userId) {
 	return await userDb.dbConnection.findMany({ where: { userId } });
 }

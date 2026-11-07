@@ -17,13 +17,12 @@ type HeaderNameProps<E extends ElementType = typeof defaultElement> = Polymorphi
     className?: string;
 };
 
-const HeaderName: React.FC<HeaderNameProps> = ({ as, className, name, to = "/", children, ...rest }) => {
-    const Component = as ?? defaultElement;
-    if (to) {
-        rest.href = to;
-    }
+const HeaderName = <E extends ElementType = typeof defaultElement>({ as, className, name, to = "/", children, ...rest }: HeaderNameProps<E>) => {
+    const Component: ElementType = as ?? defaultElement;
+    // A plain <a> takes href, a router Link takes to (and then navigates without reloading the page)
+    const target = to ? (typeof Component === "string" ? { href: to } : { to }) : {};
     return (
-        <Component {...rest} className={cn("text-xl font-bold", className)}>
+        <Component {...rest} {...target} className={cn("text-xl font-bold", className)}>
             {children ? children : <h1>{name}</h1>}
         </Component>
     );

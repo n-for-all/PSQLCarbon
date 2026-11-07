@@ -90,7 +90,7 @@ const Checkbox = React.forwardRef(
         const showWarning = !readOnly && !invalid && warn;
         const showHelper = !invalid && !warn;
 
-        const helper = helperText ? <div className={`text-xs text-black opacity-50`}>{helperText}</div> : null;
+        const helper = helperText ? <div className={`text-xs text-neutral-900 opacity-50`}>{helperText}</div> : null;
 
         return (
             <div className={"flex items-start gap-2"}>

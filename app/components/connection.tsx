@@ -1,7 +1,8 @@
 import { Form, useFetcher } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Checkbox } from "~/ui/checkbox";
 import { toast } from "~/ui/hooks/use-toast";
+import { loadPage } from "~/components/page-loading";
 import { Input } from "~/ui/input";
 import Modal from "~/ui/modal";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "~/ui/select";
@@ -77,7 +78,8 @@ const ConnectionDeleteModal = ({ open, onClose, onSuccess, id }: ConnectionDelet
 interface ConnectionModalProps {
     open: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    // A new connection passes its id so the page can offer to connect to it
+    onSuccess: (added?: { id: string }) => void;
     mode?: "add" | "edit";
     initialData?: any;
 }
@@ -89,7 +91,7 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
             name: "",
             connectionString: "postgresql://postgres:postgres@localhost:5432/postgres",
             tls: false,
-            tlsAllowInvalidCertificates: true,
+            tlsAllowInvalidCertificates: false,
             tlsCAFile: "",
             tlsCertificateKeyFile: "",
             tlsCertificateKeyFilePassword: "",
@@ -105,6 +107,7 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
         errors?: any;
         message?: string;
         redirect?: string;
+        id?: string;
     }>();
 
     useEffect(() => {
@@ -114,7 +117,7 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
                 name: "",
                 connectionString: "postgresql://postgres:postgres@localhost:5432/postgres",
                 tls: false,
-                tlsAllowInvalidCertificates: true,
+                tlsAllowInvalidCertificates: false,
                 tlsCAFile: "",
                 tlsCertificateKeyFile: "",
                 tlsCertificateKeyFilePassword: "",
@@ -126,7 +129,12 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
     }, [initialData]);
 
     useEffect(() => {
-        if (fetcher.data && fetcher.data.status == "success") {
+        if (fetcher.data && fetcher.data.status == "success" && mode == "add" && fetcher.data.id) {
+            // The connection works and is saved, close right away and let the page offer to connect
+            toast({ title: "Connection saved", description: `"${state.name}" is ready to connect`, type: "background" });
+            onSuccess({ id: fetcher.data.id });
+            onClose();
+        } else if (fetcher.data && fetcher.data.status == "success") {
             setDescription(mode == "edit" ? "Updated" : "Connected!");
             toast({
                 title: mode == "edit" ? "Updated" : "Connected!",
@@ -343,7 +351,7 @@ export const ConnectionModal = ({ open, onClose, onSuccess, mode = "add", initia
     );
 };
 
-export const SwitchConnection = ({ current, connections }) => {
+export const SwitchConnection = ({ current, connections, triggerClassName = "w-[180px]" }: { current: any; connections: any[]; triggerClassName?: string }) => {
     const fetcher = useFetcher<{
         status: string;
         errors?: any;
@@ -352,11 +360,13 @@ export const SwitchConnection = ({ current, connections }) => {
     }>();
 
     const [selectedConnection, setSelectedConnection] = useState(current);
+    // The "Connecting" message, closed once the connection answers
+    const connectingToast = useRef<{ dismiss: () => void } | null>(null);
     useEffect(() => {
-        if (selectedConnection && (fetcher.state == "submitting" || fetcher.state == "loading")) {
+        if (selectedConnection && fetcher.state == "submitting") {
             const connection = connections.find((c) => c.id == selectedConnection.id);
             if (connection) {
-                toast({
+                connectingToast.current = toast({
                     title: "Connecting, Please wait...",
                     description: `Connecting to "${connection.name}"`,
                     variant: "default",
@@ -365,8 +375,10 @@ export const SwitchConnection = ({ current, connections }) => {
         }
     }, [fetcher.state]);
     useEffect(() => {
+        connectingToast.current?.dismiss();
         if (fetcher.data && fetcher.data.status == "success") {
-            window.location.href = fetcher.data.redirect || "/";
+            // A full load so nothing from the previous connection stays on screen
+            loadPage(fetcher.data.redirect || "/");
         } else if (fetcher.data && fetcher.data.status == "error") {
             toast({
                 title: "Error",
@@ -401,13 +413,13 @@ export const SwitchConnection = ({ current, connections }) => {
             <Select
                 onValueChange={(value) => {
                     if (value == "new") {
-                        window.location.href = `/connections`;
+                        loadPage("/connections");
                         return;
                     }
                     onChange(items.find((item) => item.id == value));
                 }}
                 value={current ? current.id : null}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className={triggerClassName}>
                     <SelectValue>{current?.name || "Select a connection"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-white">

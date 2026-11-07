@@ -1,5 +1,5 @@
 import { Config } from "~/types";
-import { ConnectionData } from "../db.js";
+import { ConnectionData, READABLE_TABLE } from "../db.js";
 import { bytesToSize, isValidCollectionName, isValidDatabaseName } from "~/utils/functions";
 
 export class Database {
@@ -43,11 +43,7 @@ export class Database {
         const pool = this.connectionData.getPool(dbName);
         if (!pool) return Promise.reject(new Error("No database connection pool available"));
         
-        const res = await pool.query(`
-            SELECT tablename 
-            FROM pg_catalog.pg_tables 
-            WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema';
-        `);
+        const res = await pool.query(`SELECT tablename FROM pg_catalog.pg_tables WHERE ${READABLE_TABLE};`);
         return res.rows.map(row => ({ collectionName: row.tablename }));
     };
 
@@ -188,6 +184,32 @@ export class Database {
     };
 
     deleteDatabase = async (dbName: string) => {
-        throw new Error("Dropping database is not fully supported without switching connection. You may want to DROP TABLE instead.");
+        // The connection logs into its own database, PostgreSQL can't drop the database it's connected to
+        if (dbName === this.connectionData.defaultDb) {
+            throw new Error(`"${dbName}" is the database this connection logs into, so it can't be dropped from here. Drop it from a connection to another database, such as postgres.`);
+        }
+        if (!this.connectionData.isAllowed(dbName)) {
+            throw new Error(`"${dbName}" isn't allowed by this connection's whitelist/blacklist`);
+        }
+        const defaultPool = this.connectionData.getPool();
+        if (!defaultPool) throw new Error("No default database connection pool available");
+
+        // The app's own connections to it are closed first, they would block the drop
+        await this.connectionData.closePool(dbName);
+        try {
+            await defaultPool.query(`DROP DATABASE "${dbName.replace(/"/g, '""')}"`);
+        } catch (e: any) {
+            // 55006: other sessions are still connected, they're not ended for the user
+            if (e.code === "55006") {
+                const sessions = await defaultPool
+                    .query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = $1", [dbName])
+                    .then((res) => res.rows[0].count)
+                    .catch(() => null);
+                throw new Error(
+                    `"${dbName}" is still in use by ${sessions ? `${sessions} other connection${sessions === 1 ? "" : "s"}` : "other connections"}. Close them (other apps or tools connected to it) and try again.`
+                );
+            }
+            throw e;
+        }
     };
 }

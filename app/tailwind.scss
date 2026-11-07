@@ -2,6 +2,194 @@
     --cds-helper-text-01-letter-spacing: 0;
 }
 
+// Theme colors as RGB channels, Tailwind reads them through tailwind.config.ts so every
+// neutral-*, white, red-* ... class follows the light or dark theme (class "dark" on <html>)
+:root {
+    --c-neutral-50: 250 250 250;
+    --c-neutral-100: 245 245 245;
+    --c-neutral-200: 229 229 229;
+    --c-neutral-300: 212 212 212;
+    --c-neutral-400: 163 163 163;
+    --c-neutral-500: 115 115 115;
+    --c-neutral-600: 82 82 82;
+    --c-neutral-700: 64 64 64;
+    --c-neutral-800: 38 38 38;
+    --c-neutral-900: 23 23 23;
+    --c-neutral-950: 10 10 10;
+    --c-red-50: 254 242 242;
+    --c-red-100: 254 226 226;
+    --c-red-200: 254 202 202;
+    --c-red-300: 252 165 165;
+    --c-red-400: 248 113 113;
+    --c-red-500: 239 68 68;
+    --c-red-600: 220 38 38;
+    --c-red-700: 185 28 28;
+    --c-red-800: 153 27 27;
+    --c-red-900: 127 29 29;
+    --c-red-950: 69 10 10;
+    --c-green-50: 240 253 244;
+    --c-green-100: 220 252 231;
+    --c-green-200: 187 247 208;
+    --c-green-300: 134 239 172;
+    --c-green-400: 74 222 128;
+    --c-green-500: 34 197 94;
+    --c-green-600: 22 163 74;
+    --c-green-700: 21 128 61;
+    --c-green-800: 22 101 52;
+    --c-green-900: 20 83 45;
+    --c-green-950: 5 46 22;
+    --c-amber-50: 255 251 235;
+    --c-amber-100: 254 243 199;
+    --c-amber-200: 253 230 138;
+    --c-amber-300: 252 211 77;
+    --c-amber-400: 251 191 36;
+    --c-amber-500: 245 158 11;
+    --c-amber-600: 217 119 6;
+    --c-amber-700: 180 83 9;
+    --c-amber-800: 146 64 14;
+    --c-amber-900: 120 53 15;
+    --c-amber-950: 69 26 3;
+    --c-blue-50: 239 246 255;
+    --c-blue-100: 219 234 254;
+    --c-blue-200: 191 219 254;
+    --c-blue-300: 147 197 253;
+    --c-blue-400: 96 165 250;
+    --c-blue-500: 59 130 246;
+    --c-blue-600: 37 99 235;
+    --c-blue-700: 29 78 216;
+    --c-blue-800: 30 64 175;
+    --c-blue-900: 30 58 138;
+    --c-blue-950: 23 37 84;
+    --c-yellow-50: 254 252 232;
+    --c-yellow-100: 254 249 195;
+    --c-yellow-200: 254 240 138;
+    --c-yellow-300: 253 224 71;
+    --c-yellow-400: 250 204 21;
+    --c-yellow-500: 234 179 8;
+    --c-yellow-600: 202 138 4;
+    --c-yellow-700: 161 98 7;
+    --c-yellow-800: 133 77 14;
+    --c-yellow-900: 113 63 18;
+    --c-yellow-950: 66 32 6;
+    --c-pink-50: 253 242 248;
+    --c-pink-100: 252 231 243;
+    --c-pink-200: 251 207 232;
+    --c-pink-300: 249 168 212;
+    --c-pink-400: 244 114 182;
+    --c-pink-500: 236 72 153;
+    --c-pink-600: 219 39 119;
+    --c-pink-700: 190 24 93;
+    --c-pink-800: 157 23 77;
+    --c-pink-900: 131 24 67;
+    --c-pink-950: 80 7 36;
+    --c-white: 255 255 255;
+    --c-surface-raised: 248 248 248;
+    --c-popover-fg: 0 0 0;
+    --c-secondary: 227 227 227;
+    --c-tooltip: 0 0 0;
+    --c-erd-bg: 250 250 250;
+    --c-erd-card: 255 255 255;
+    --c-erd-text: 23 23 23;
+    --c-erd-muted: 115 115 115;
+    --c-erd-border: 212 212 212;
+    --c-erd-row: 240 240 240;
+    --c-scroll-thumb: 0 0 0;
+}
+
+.dark {
+    color-scheme: dark;
+    --c-neutral-50: 28 28 31;
+    --c-neutral-100: 35 35 38;
+    --c-neutral-200: 46 46 50;
+    --c-neutral-300: 61 61 66;
+    --c-neutral-400: 107 107 113;
+    --c-neutral-500: 142 142 148;
+    --c-neutral-600: 169 169 174;
+    --c-neutral-700: 199 199 204;
+    --c-neutral-800: 226 226 230;
+    --c-neutral-900: 242 242 245;
+    --c-neutral-950: 250 250 250;
+    --c-red-50: 51 24 25;
+    --c-red-100: 66 25 26;
+    --c-red-200: 94 25 26;
+    --c-red-300: 144 26 27;
+    --c-red-400: 248 113 113;
+    --c-red-500: 239 68 68;
+    --c-red-600: 248 113 113;
+    --c-red-700: 252 165 165;
+    --c-red-800: 254 202 202;
+    --c-red-900: 254 226 226;
+    --c-red-950: 254 242 242;
+    --c-green-50: 21 39 30;
+    --c-green-100: 21 48 33;
+    --c-green-200: 22 65 39;
+    --c-green-300: 21 102 52;
+    --c-green-400: 74 222 128;
+    --c-green-500: 34 197 94;
+    --c-green-600: 74 222 128;
+    --c-green-700: 134 239 172;
+    --c-green-800: 187 247 208;
+    --c-green-900: 220 252 231;
+    --c-green-950: 240 253 244;
+    --c-amber-50: 49 31 21;
+    --c-amber-100: 63 35 20;
+    --c-amber-200: 90 45 18;
+    --c-amber-300: 140 68 13;
+    --c-amber-400: 251 191 36;
+    --c-amber-500: 245 158 11;
+    --c-amber-600: 251 191 36;
+    --c-amber-700: 252 211 77;
+    --c-amber-800: 253 230 138;
+    --c-amber-900: 254 243 199;
+    --c-amber-950: 255 251 235;
+    --c-blue-50: 24 32 56;
+    --c-blue-100: 25 37 72;
+    --c-blue-200: 26 45 107;
+    --c-blue-300: 27 64 168;
+    --c-blue-400: 96 165 250;
+    --c-blue-500: 59 130 246;
+    --c-blue-600: 96 165 250;
+    --c-blue-700: 147 197 253;
+    --c-blue-800: 191 219 254;
+    --c-blue-900: 219 234 254;
+    --c-blue-950: 239 246 255;
+    --c-yellow-50: 47 33 22;
+    --c-yellow-100: 60 39 21;
+    --c-yellow-200: 83 52 18;
+    --c-yellow-300: 126 79 11;
+    --c-yellow-400: 250 204 21;
+    --c-yellow-500: 234 179 8;
+    --c-yellow-600: 250 204 21;
+    --c-yellow-700: 253 224 71;
+    --c-yellow-800: 254 240 138;
+    --c-yellow-900: 254 249 195;
+    --c-yellow-950: 254 252 232;
+    --c-pink-50: 53 23 36;
+    --c-pink-100: 68 23 42;
+    --c-pink-200: 96 23 53;
+    --c-pink-300: 148 24 76;
+    --c-pink-400: 244 114 182;
+    --c-pink-500: 236 72 153;
+    --c-pink-600: 244 114 182;
+    --c-pink-700: 249 168 212;
+    --c-pink-800: 251 207 232;
+    --c-pink-900: 252 231 243;
+    --c-pink-950: 253 242 248;
+    --c-white: 22 22 24;
+    --c-surface-raised: 35 35 38;
+    --c-popover-fg: 242 242 245;
+    --c-secondary: 51 51 54;
+    --c-tooltip: 58 58 61;
+    --c-erd-bg: 18 18 20;
+    --c-erd-card: 30 30 33;
+    --c-erd-text: 235 235 240;
+    --c-erd-muted: 150 150 156;
+    --c-erd-border: 64 64 70;
+    --c-erd-row: 44 44 48;
+    --c-scroll-thumb: 255 255 255;
+}
+
+
 
 @tailwind base;
 @tailwind components;
@@ -18,18 +206,71 @@
 }
 
 html,
-body { 
-    @apply bg-white dark:bg-gray-950;
+body {
+    @apply bg-white text-neutral-900;
 
     font-size: 16px;
-
-    @media (prefers-color-scheme: dark) {
-        color-scheme: dark;
-    }
 }
 
+
+// Slim scrollbars everywhere. Chromium and Safari use the ::-webkit-scrollbar rules, Firefox the standard
+// properties (Chromium ignores ::-webkit-scrollbar once scrollbar-width is set, so that only applies elsewhere)
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--c-scroll-thumb) / 0.2);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--c-scroll-thumb) / 0.35);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--c-scroll-thumb) / 0.25) transparent;
+    }
+}
 
 .react-autocomplete-input>li.active {
     background-color: #337ab7;
     color: #fff;
+}
+// Indeterminate bar along the top of the window while a page loads (components/page-loading.tsx)
+.page-loading-bar {
+    animation: page-loading 1.1s ease-in-out infinite;
+}
+
+@keyframes page-loading {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(300%);
+    }
+}
+
+// macOS desktop app: the window has no title bar (electron/main.js), so headers marked .app-drag move the
+// window like one, while the controls inside them stay clickable
+[data-titlebar="mac"] {
+    .app-drag {
+        -webkit-app-region: drag;
+        user-select: none;
+    }
+
+    .app-drag :is(a, button, input, select, textarea, label, [role="button"], [role="combobox"], [tabindex]) {
+        -webkit-app-region: no-drag;
+    }
 }

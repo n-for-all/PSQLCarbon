@@ -7,6 +7,7 @@ export interface Config {
 }
 
 export interface UserConnection {
+	id?: string;
 	allowDiskUse?: boolean;
 	name: string;
 	connectionString: string;

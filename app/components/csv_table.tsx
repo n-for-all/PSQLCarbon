@@ -4,7 +4,7 @@ import { CopyText } from "./copy_text";
 import Modal from "~/ui/modal";
 import { Button } from "~/ui/button";
 
-import { SortAscIcon, SortDescIcon, EyeIcon } from "@primer/octicons-react";
+import { SortAscIcon, SortDescIcon, EyeIcon, PencilIcon, TrashIcon } from "@primer/octicons-react";
 
 interface CsvTableProps {
     sort?: { field: string; direction: number };
@@ -12,9 +12,12 @@ interface CsvTableProps {
     columns?: string[];
     allowEdit?: boolean;
     onSort?: (field: string) => void;
+    /** Row actions, only shown when given (not for raw query results) */
+    onEditRow?: (row: any, index: number) => void;
+    onDeleteRow?: (row: any, index: number) => void;
 }
 
-export const CsvTable = ({ sort = { field: "", direction: 1 }, rows, columns, allowEdit = false, onSort }: CsvTableProps) => {
+export const CsvTable = ({ sort = { field: "", direction: 1 }, rows, columns, allowEdit = false, onSort, onEditRow, onDeleteRow }: CsvTableProps) => {
     let headers: string[] = columns || [];
     if (headers.length === 0 && rows.length > 0) {
         rows.forEach((row) => {
@@ -42,7 +45,7 @@ export const CsvTable = ({ sort = { field: "", direction: 1 }, rows, columns, al
             <table border={1} className="bg-neutral-50 w-full min-w-max">
                 <thead>
                     <tr>
-                        <th className="px-4 py-2 text-left text-md bg-neutral-100 w-10"></th>
+                        <th className={`px-4 py-2 text-left text-md bg-neutral-100 ${onEditRow || onDeleteRow ? "w-28" : "w-10"}`}></th>
                         {headers.map((header, index) => {
                             return (
                                 <th
@@ -70,8 +73,12 @@ export const CsvTable = ({ sort = { field: "", direction: 1 }, rows, columns, al
                 <tbody>
                     {rows.map((row, rowIndex) => (
                         <tr key={row.id || row._id || rowIndex} className={"opacity-80 hover:opacity-100 border-b " + (rowIndex % 2 == 0 ? "bg-white" : "")}>
-                            <td className="px-2 py-2 text-center align-top">
-                                <Button size="sm" variant="ghost" hasIconOnly icon={<EyeIcon />} onClick={() => setActiveRecord(row)} />
+                            <td className="px-2 py-2 text-center align-top whitespace-nowrap">
+                                <Button size="sm" variant="ghost" hasIconOnly icon={<EyeIcon />} tooltip="View" onClick={() => setActiveRecord(row)} />
+                                {onEditRow && <Button size="sm" variant="ghost" hasIconOnly icon={<PencilIcon />} tooltip="Edit" onClick={() => onEditRow(row, rowIndex)} />}
+                                {onDeleteRow && (
+                                    <Button size="sm" variant="ghost" hasIconOnly className="text-red-600" icon={<TrashIcon />} tooltip="Delete" onClick={() => onDeleteRow(row, rowIndex)} />
+                                )}
                             </td>
                             {headers.map((key) => {
                                 if ((Array.isArray(row[key]) || row[key] instanceof Object) && !(row[key] instanceof Date)) {

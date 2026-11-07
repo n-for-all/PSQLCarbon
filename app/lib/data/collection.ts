@@ -5,6 +5,12 @@ import { parseObjectId, toJsonString, bsonToString, toBSON, parseEJSON } from "~
 
 const ALLOWED_MIME_TYPES = new Set(["text/csv", "application/json"]);
 
+// Unfiltered tables with more rows than this are counted from the planner's statistics: an exact COUNT(*)
+// reads the whole table, which takes seconds on millions of rows
+const ESTIMATE_COUNT_FROM = 100_000;
+
+const quoteIdent = (name: string) => `"${String(name).replace(/"/g, '""')}"`;
+
 const converters = {
     // If type == J, convert value as json document
     J(value: string) {
@@ -86,34 +92,55 @@ export class Collection {
         const keys = Object.keys(queryObj);
         const values = Object.values(queryObj);
         
+        const table = quoteIdent(this.collectionName);
         let whereClause = "";
         if (keys.length > 0) {
-            whereClause = "WHERE " + keys.map((k, i) => `"${k}" = $${i + 1}`).join(" AND ");
+            whereClause = "WHERE " + keys.map((k, i) => `${quoteIdent(k)} = $${i + 1}`).join(" AND ");
         }
 
-        let sortClause = "";
+        // Ordered by the primary key after any chosen sort, otherwise rows can come back in a different order
+        // for every page, so pages would repeat or skip rows
+        const primaryKey = await this._primaryKey();
         const sortKeys = Object.keys(queryOptions.sort);
-        if (sortKeys.length > 0) {
-            sortClause = "ORDER BY " + sortKeys.map((k) => `"${k}" ${queryOptions.sort[k]}`).join(", ");
-        }
+        const order = [
+            ...sortKeys.map((k) => `${quoteIdent(k)} ${queryOptions.sort[k]}`),
+            ...primaryKey.filter((k) => !sortKeys.includes(k)).map((k) => quoteIdent(k)),
+        ];
+        const sortClause = order.length > 0 ? `ORDER BY ${order.join(", ")}` : "";
 
-        const query = `SELECT * FROM "${this.collectionName}" ${whereClause} ${sortClause} LIMIT $${keys.length + 1} OFFSET $${keys.length + 2}`;
-        const countQuery = `SELECT COUNT(*) FROM "${this.collectionName}" ${whereClause}`;
+        const query = `SELECT * FROM ${table} ${whereClause} ${sortClause} LIMIT $${keys.length + 1} OFFSET $${keys.length + 2}`;
 
-        const [itemsRes, countRes] = await Promise.all([
-            this.pool.query(query, [...values, queryOptions.limit, queryOptions.skip]),
-            this.pool.query(countQuery, values)
-        ]);
+        const [itemsRes, counted] = await Promise.all([this.pool.query(query, [...values, queryOptions.limit, queryOptions.skip]), this._count(whereClause, values)]);
 
         return {
             items: itemsRes.rows,
-            count: parseInt(countRes.rows[0].count),
+            ...counted,
         };
+    };
+
+    _primaryKey = async (): Promise<string[]> => {
+        const res = await this.pool.query(
+            `SELECT a.attname AS name FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+            WHERE i.indrelid = to_regclass($1) AND i.indisprimary ORDER BY array_position(i.indkey, a.attnum)`,
+            [quoteIdent(this.collectionName)]
+        );
+        return res.rows.map((row) => row.name);
+    };
+
+    _count = async (whereClause: string, values: unknown[]): Promise<{ count: number; countIsEstimate: boolean }> => {
+        if (!whereClause) {
+            // reltuples is -1 for a table that was never analyzed, then it's counted
+            const estimate = await this.pool.query(`SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid = to_regclass($1)`, [quoteIdent(this.collectionName)]);
+            const rows = Number(estimate.rows[0]?.estimate ?? -1);
+            if (rows >= ESTIMATE_COUNT_FROM) return { count: rows, countIsEstimate: true };
+        }
+        const res = await this.pool.query(`SELECT COUNT(*) FROM ${quoteIdent(this.collectionName)} ${whereClause}`, values);
+        return { count: parseInt(res.rows[0].count), countIsEstimate: false };
     };
 
     viewCollection = async (query: { [x: string]: any }) => {
         const queryOptions = this._getQueryOptions(query);
-        const { items, count } = await this._getItemsAndCount(query, queryOptions);
+        const { items, count, countIsEstimate } = await this._getItemsAndCount(query, queryOptions);
 
         const docs = items;
         let docsColumns: string[] = [];
@@ -198,6 +225,7 @@ export class Collection {
             docs,
             columns: docsColumns,
             count,
+            countIsEstimate,
             stats: {
                 storageStats: {
                     storageSize: parseInt(dbStats.storageSize) || 0,

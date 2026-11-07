@@ -456,7 +456,7 @@ const TreeNode = React.forwardRef<HTMLLIElement, TreeNodeProps>(
         if (!children) {
             return (
                 <li {...treeNodeProps} className={treeNodeClasses} ref={setRefs}>
-                    <div style={{ paddingLeft }} className={"flex items-center gap-2 py-1 transition " + treeLabelClasses} ref={currentNodeLabel}>
+                    <div style={{ paddingLeft }} className={"flex items-center gap-2 py-0.5 min-w-0 transition " + treeLabelClasses} ref={currentNodeLabel}>
                         {icon}
                         {label}
                     </div>
@@ -466,10 +466,10 @@ const TreeNode = React.forwardRef<HTMLLIElement, TreeNodeProps>(
         return (
             <li style={{ paddingLeft }} {...treeNodeProps} className={treeNodeClasses} aria-expanded={!!isExpanded} ref={setRefs}>
                 <div className={"flex items-center transition cursor-pointer hover:bg-tree/10 " + treeLabelClasses} ref={currentNodeLabel}>
-                    <span className="w-6 py-2 pl-3 pr-2 mr-2 -ml-2" onClick={handleToggleClick}>
+                    <span className="w-6 py-1 pl-3 pr-2 mr-1 -ml-2 shrink-0" onClick={handleToggleClick}>
                         <TriangleRightIcon className={"h-4 " + toggleClasses} />
                     </span>
-                    <span className="flex items-center">
+                    <span className="flex items-center min-w-0">
                         {icon}
                         {label}
                     </span>
