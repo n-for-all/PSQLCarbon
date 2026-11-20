@@ -110,7 +110,7 @@ export const loader: LoaderFunction = async ({ request }) => {
         if (e instanceof Response) {
             return e;
         }
-        return redirect(`/error?message=${e.message}`);
+        return redirect(`/error?message=${encodeURIComponent(e.message)}`);
     }
 };
 

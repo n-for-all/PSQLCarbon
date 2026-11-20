@@ -50,7 +50,7 @@ export const loader: LoaderFunction = async ({ request, params }) => {
             }
         );
     } catch (e: any) {
-        return redirect(`/error?message=${e.message}`);
+        return redirect(`/error?message=${encodeURIComponent(e.message)}`);
     }
 };
 
