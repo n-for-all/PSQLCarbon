@@ -380,7 +380,7 @@ export default function DiagramPage() {
 
     const openTable = (table: string) => {
         // Table pages work on the current schema
-        if (data.schema === "public") navigate(`/database/${encodeURIComponent(data.database)}/${encodeURIComponent(table)}`);
+        if (data.schema === (data.current || "public")) navigate(`/database/${encodeURIComponent(data.database)}/${encodeURIComponent(table)}`);
     };
 
     const exportDiagram = async (format: "svg" | "png") => {
@@ -570,7 +570,7 @@ export default function DiagramPage() {
                                             onPointerDown={(e) => onPointerDown(e, table.name)}
                                             onDoubleClick={() => openTable(table.name)}
                                             style={{ cursor: "move" }}>
-                                            <title>{data.schema === "public" ? "Drag to move, double click to open" : "Drag to move"}</title>
+                                            <title>{data.schema === (data.current || "public") ? "Drag to move, double click to open" : "Drag to move"}</title>
                                             <rect width={width} height={height} rx={6} fill="rgb(var(--c-erd-card))" stroke={highlighted ? color : "rgb(var(--c-erd-border))"} strokeWidth={highlighted ? 2 : 1} />
                                             <path d={`M 0 6 a 6 6 0 0 1 6 -6 H ${width - 6} a 6 6 0 0 1 6 6 V ${HEADER_H} H 0 Z`} fill={color} />
                                             <text x={12} y={HEADER_H / 2} dominantBaseline="central" fontSize={13} fontWeight={700} fill="#ffffff" fontFamily="system-ui, sans-serif">

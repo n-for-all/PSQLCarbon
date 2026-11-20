@@ -22,7 +22,8 @@ module.exports = {
 	// One archive instead of ~20,000 loose files: faster to sign, merge into a universal app and start.
 	// Native files can't be loaded from inside an archive, so they're kept next to it.
 	asar: true,
-	asarUnpack: ["**/*.node"],
+	// Native files, and the MCP bridge that Claude Desktop runs with the app as plain Node (electron/mcp-bridge.cjs)
+	asarUnpack: ["**/*.node", "electron/mcp-bridge.cjs"],
 	files: [
 		"package.json",
 		"electron/**",

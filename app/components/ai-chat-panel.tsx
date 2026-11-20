@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { openSettings, SETTINGS_SAVED_EVENT } from "~/components/settings-dialog";
 import { Link, useRevalidator } from "@remix-run/react";
 import { Button } from "~/ui/button";
 import {
@@ -173,7 +174,7 @@ const ToolCard = ({
             run_query: args.purpose || "Run query",
             list_databases: "List databases",
             list_tables: args.schema ? `List tables in ${args.schema}` : "List tables",
-            describe_table: `Describe ${args.schema || "public"}.${args.table}`,
+            describe_table: `Describe ${args.schema ? `${args.schema}.` : ""}${args.table}`,
             save_memory: "Save memory",
             export_query_results: `Export results (${(args.format || "csv").toUpperCase()})`,
             create_backup: `Back up ${args.database || "database"}`,
@@ -332,6 +333,8 @@ const AssistantText = ({ content }: { content: string }) => {
     return <>{rendered}</>;
 };
 
+const ACTIVE_CHAT_KEY = "ai_chat_active";
+
 export const AiChatPanel = ({ db, table }: AiChatPanelProps) => {
     const revalidator = useRevalidator();
     const [sessions, setSessions] = useState<(SessionInfo & { updatedAt?: string })[]>([]);
@@ -370,6 +373,12 @@ export const AiChatPanel = ({ db, table }: AiChatPanelProps) => {
         const response = await fetch(`/api/chat?session=${encodeURIComponent(id)}`);
         const data = await response.json();
         if (!response.ok) {
+            if (response.status === 404) {
+                try {
+                    sessionStorage.removeItem(ACTIVE_CHAT_KEY);
+                } catch {}
+                return;
+            }
             setError(data.message);
             return;
         }
@@ -380,6 +389,35 @@ export const AiChatPanel = ({ db, table }: AiChatPanelProps) => {
     useEffect(() => {
         loadOverview();
     }, [loadOverview]);
+
+    // A new model or provider chosen in the settings dialog shows here right away
+    useEffect(() => {
+        window.addEventListener(SETTINGS_SAVED_EVENT, loadOverview);
+        return () => window.removeEventListener(SETTINGS_SAVED_EVENT, loadOverview);
+    }, [loadOverview]);
+
+    // The open chat survives the panel being remounted (leaving the database pages and coming back), its database's
+    // memories come back with it
+    const restored = useRef(false);
+    useEffect(() => {
+        if (restored.current) return;
+        restored.current = true;
+        try {
+            const id = sessionStorage.getItem(ACTIVE_CHAT_KEY);
+            if (id) loadSession(id);
+        } catch {
+            // only a convenience
+        }
+    }, [loadSession]);
+    useEffect(() => {
+        if (!restored.current) return;
+        try {
+            if (active?.id) sessionStorage.setItem(ACTIVE_CHAT_KEY, active.id);
+            else sessionStorage.removeItem(ACTIVE_CHAT_KEY);
+        } catch {
+            // only a convenience
+        }
+    }, [active?.id]);
 
     useEffect(() => {
         try {
@@ -591,9 +629,9 @@ export const AiChatPanel = ({ db, table }: AiChatPanelProps) => {
                 {!configured && (
                     <div className="p-3 text-sm border border-amber-200 bg-amber-50">
                         Add your AI API key in{" "}
-                        <Link to="/profile" className="underline">
-                            Profile settings
-                        </Link>{" "}
+                        <button type="button" onClick={openSettings} className="underline">
+                            AI settings
+                        </button>{" "}
                         to use the assistant.
                     </div>
                 )}

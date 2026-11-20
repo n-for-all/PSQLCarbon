@@ -103,7 +103,8 @@ export function toolEnvironment(connection: UserConnection, database: string) {
 	};
 	if (url.password) env.PGPASSWORD = decodeURIComponent(url.password);
 	const sslmode = url.searchParams.get("sslmode");
-	if (sslmode) env.PGSSLMODE = sslmode;
+	// "no-verify" is node-postgres only, for pg_dump and pg_restore it's "require"
+	if (sslmode) env.PGSSLMODE = sslmode === "no-verify" ? "require" : sslmode;
 	let cleanup = () => {};
 	if (connection.tls) {
 		env.PGSSLMODE = connection.tlsAllowInvalidCertificates ? "require" : "verify-full";

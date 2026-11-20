@@ -3,7 +3,7 @@ import { Link, redirect, useLocation } from "@remix-run/react";
 import { useNavigate } from "@remix-run/react";
 import packageJson from "../../package.json";
 
-import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, EyeIcon, PlusIcon, SignOutIcon, ThreeBarsIcon, XIcon, DependabotIcon, GearIcon, MarkGithubIcon, CommentDiscussionIcon, SyncIcon, SidebarCollapseIcon, SidebarExpandIcon } from "@primer/octicons-react";
+import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, EyeIcon, PlusIcon, SignOutIcon, ThreeBarsIcon, XIcon, DependabotIcon, GearIcon, MarkGithubIcon, CommentDiscussionIcon, SyncIcon, SidebarCollapseIcon, SidebarExpandIcon, ArrowSwitchIcon } from "@primer/octicons-react";
 import { LoaderFunction } from "@remix-run/node";
 import { commitSession, getSessionConnection, getUserDbConnections, getUserSession, requireUser, User } from "~/utils/session.server";
 import db, { ConnectionData } from "~/lib/db";
@@ -12,6 +12,8 @@ import React, { ReactElement, useEffect, useState, useCallback } from "react";
 import { SwitchConnection } from "~/components/connection";
 import { DbConnection } from "@prisma/client";
 import { DatabaseAddModal } from "~/components/database";
+import { SchemaSwitchModal } from "~/components/schema-switch";
+import { OPEN_SETTINGS_EVENT, SettingsDialog } from "~/components/settings-dialog";
 import { GithubButton } from "~/components/github_widget";
 import { SupportMenu } from "~/components/support-menu";
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -52,6 +54,8 @@ interface MongoDbCollection {
     idIndex: IdIndex;
 }
 
+type SchemaInfo = { current: string; list: { name: string; tables: number }[] };
+
 type ProfileLoaderData = {
     user: User;
 };
@@ -69,7 +73,7 @@ export const loader: LoaderFunction = async ({ request }) => {
                 const session = await getUserSession(request);
                 session.set("connectionId", connections[0].id);
                 headers["Set-Cookie"] = await commitSession(session);
-                connection = connections[0];
+                connection = { ...connections[0], schemas: {} };
             } else {
                 return redirect("/connections");
             }
@@ -86,16 +90,20 @@ export const loader: LoaderFunction = async ({ request }) => {
         const databases = await mongo.getDatabases(); // List of database names
 
         // One round trip per database, done side by side so a remote server doesn't add them all up
-        const collections = Object.fromEntries(await Promise.all(databases.map(async (dbName) => [dbName, await mongo.getCollections({ dbName })])));
+        const listed = await Promise.all(databases.map(async (dbName) => [dbName, await mongo.getSchemaTables(dbName)] as const));
+        const collections = Object.fromEntries(listed.map(([dbName, found]) => [dbName, found.tables.map((name) => ({ name, type: "collection" }))]));
+        // The schema in use for each database and the others it has, the sidebar offers to switch when there are more
+        const schemas = Object.fromEntries(listed.map(([dbName, found]) => [dbName, { current: found.schema, list: found.schemas }]));
         const gridFSBuckets = colsToGrid(collections);
 
         const result: ProfileLoaderData & {
-            connection: DbConnection;
+            connection: DbConnection & { schemas?: Record<string, string> };
             connections: Array<DbConnection>;
             databases: string[];
             collections: Record<string, string[]>;
             gridFSBuckets: { [x: string]: string[] };
-        } = { user, databases, connections, connection, collections, gridFSBuckets };
+            schemas: Record<string, SchemaInfo>;
+        } = { user, databases, connections, connection, collections, gridFSBuckets, schemas };
 
         return Response.json(result, { headers });
     } catch (e: any) {
@@ -110,8 +118,10 @@ export const loader: LoaderFunction = async ({ request }) => {
  * The sidebar lists every database and its tables, a round trip per database that a remote server makes slow.
  * It's only reloaded after a change (a form or fetcher submission) or when asked, not on every click.
  */
-export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, currentUrl, nextUrl, defaultShouldRevalidate }) => {
+export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod, formAction, currentUrl, nextUrl, defaultShouldRevalidate }) => {
     if (!formMethod && currentUrl.href !== nextUrl.href) return false;
+    // Saving the settings (app/components/settings-dialog.tsx) changes nothing in the sidebar
+    if (formAction === "/profile") return false;
     return defaultShouldRevalidate;
 };
 
@@ -144,6 +154,15 @@ export default function Layout() {
     const [isSideNavExpanded, setIsSideNavExpanded] = useState(true);
     const [isCreateDatabase, setIsCreateDatabase] = useState(false);
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+    // Settings open over the page, so closing them comes back to it unchanged
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    useEffect(() => {
+        const open = () => setIsSettingsOpen(true);
+        window.addEventListener(OPEN_SETTINGS_EVENT, open);
+        return () => window.removeEventListener(OPEN_SETTINGS_EVENT, open);
+    }, []);
+    // The database whose schema is being switched
+    const [schemaSwitchDb, setSchemaSwitchDb] = useState("");
     // Open by default, closing it is remembered
     const [isAiChatOpen, setIsAiChatOpen] = useState(true);
     const chat = useResizable({ storageKey: "ai_chat_panel_width", defaultWidth: 380, min: 300, max: 1000, edge: "left" });
@@ -215,12 +234,28 @@ export default function Layout() {
                     }}
                     key={database}
                     label={
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center w-full min-w-0 gap-2">
                             <span className="font-mono text-[13px] truncate" title={database}>{database}</span>
                             {["postgres", "template0", "template1"].includes(database) && (
                                 <span className="px-1.5 py-0.5 text-[9px] font-medium leading-none text-neutral-500 bg-neutral-200/50 rounded border border-neutral-200">
                                     SYS
                                 </span>
+                            )}
+                            {(loaderData.schemas?.[database]?.list.length ?? 0) > 1 && (
+                                // Only when the database has tables in more than one schema, the tree row itself opens the database
+                                <button
+                                    type="button"
+                                    title={`Schema: ${loaderData.schemas[database].current}. Click to switch`}
+                                    aria-label={`Switch schema of ${database}, now ${loaderData.schemas[database].current}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSchemaSwitchDb(database);
+                                    }}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    className="ml-auto flex items-center gap-1 px-1.5 py-0.5 text-[11px] leading-none rounded border border-neutral-300 text-neutral-500 hover:text-neutral-900 hover:border-neutral-500 bg-white/60 max-w-[45%]">
+                                    <span className="font-mono truncate">{loaderData.schemas[database].current}</span>
+                                    <ArrowSwitchIcon size={10} className="shrink-0" />
+                                </button>
                             )}
                         </span>
                     }
@@ -327,7 +362,7 @@ export default function Layout() {
                     <TitleBarButton label="PSQLCarbon on GitHub" href="https://github.com/n-for-all/psqlcarbon">
                         <MarkGithubIcon size={16} />
                     </TitleBarButton>
-                    <TitleBarButton label="Settings" to="/profile">
+                    <TitleBarButton label="Settings" onClick={() => setIsSettingsOpen(true)}>
                         <GearIcon size={16} />
                     </TitleBarButton>
                 </TitleBar>
@@ -402,7 +437,7 @@ export default function Layout() {
                             <ThemeToggle />
                             <SupportMenu />
                             <GithubButton repo="n-for-all/psqlcarbon" version={packageJson.version} title={"PSQLCarbon"} />
-                            <Link to="/profile">
+                            <button type="button" onClick={() => setIsSettingsOpen(true)}>
                                 {/* The desktop app has no accounts, the page holds its settings */}
                                 <HeaderAction aria-label={desktop ? "Settings" : "User Profile"}>
                                     {desktop ? (
@@ -413,7 +448,7 @@ export default function Layout() {
                                         </Avatar>
                                     )}
                                 </HeaderAction>
-                            </Link>
+                            </button>
                             {!desktop && (
                                 <HeaderAction aria-label="Logout">
                                     <Link to={"/logout"}>
@@ -464,6 +499,21 @@ export default function Layout() {
                 </div>
             </SidebarProvider>
             <FeedbackDialog open={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+            <SettingsDialog open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} desktop={desktop} />
+            <SchemaSwitchModal
+                open={!!schemaSwitchDb}
+                database={schemaSwitchDb}
+                current={loaderData.schemas?.[schemaSwitchDb]?.current || ""}
+                schemas={loaderData.schemas?.[schemaSwitchDb]?.list || []}
+                onClose={() => setSchemaSwitchDb("")}
+                onChanged={() => {
+                    // The open table may not exist in the new schema, so the database page opens instead
+                    const database = schemaSwitchDb;
+                    setCurrent({ db: database, collection: "" });
+                    navigate(`/database/${database}`);
+                    revalidator.revalidate();
+                }}
+            />
             <DatabaseAddModal
                 open={isCreateDatabase}
                 onClose={() => {

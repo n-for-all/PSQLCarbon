@@ -9,11 +9,13 @@ export async function loadDiagramSchema(pool: Pool, requested: string | null): P
         await pool.query(
             `SELECT n.nspname AS name, count(*)::int AS tables FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%'
-            GROUP BY 1 ORDER BY (n.nspname = 'public') DESC, 1`
+            GROUP BY 1 ORDER BY (n.nspname = current_schema()) DESC, 1`
         )
     ).rows as { name: string; tables: number }[];
 
-    const schema = schemas.find((s) => s.name === requested)?.name || schemas[0]?.name || "public";
+    // The schema the sidebar is on (app/lib/db.ts) comes first, its tables can be opened from the diagram
+    const current: string = (await pool.query("SELECT current_schema() AS schema")).rows[0]?.schema || "public";
+    const schema = schemas.find((s) => s.name === requested)?.name || schemas[0]?.name || current;
 
     const [tableRows, columnRows, indexRows, relationRows] = await Promise.all([
         pool.query(
@@ -59,5 +61,5 @@ export async function loadDiagramSchema(pool: Pool, requested: string | null): P
         .filter((row) => names.has(row.table) && names.has(row.ref_table))
         .map((row) => ({ name: row.name, table: row.table, columns: row.columns, refTable: row.ref_table, refColumns: row.ref_columns }));
 
-    return { schema, schemas, tables, relations, truncated };
+    return { schema, current, schemas, tables, relations, truncated };
 }

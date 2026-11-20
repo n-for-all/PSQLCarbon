@@ -77,12 +77,32 @@ export async function getSessionConnection(request: Request) {
 		return null;
 	}
 	const connection = typeof connectionId === "string" ? await userDb.dbConnection.findUnique({ where: { id: connectionId, userId } }) : null;
+	// The schema chosen for each database goes with it, so every route works in the same one (app/lib/db.ts)
+	const withSchemas = <T extends { id: string }>(found: T) => ({ ...found, schemas: getSessionSchemas(session, found.id) });
 	if (connection) {
-		return connection;
+		return withSchemas(connection);
 	}
 	// Nothing selected (or it was deleted): use the only saved connection, route loaders run in parallel so they all need the same answer
 	const connections = await userDb.dbConnection.findMany({ where: { userId }, take: 2 });
-	return connections.length === 1 ? connections[0] : null;
+	return connections.length === 1 ? withSchemas(connections[0]) : null;
+}
+
+type SessionSchemas = { [connectionId: string]: { [dbName: string]: string } };
+
+function getSessionSchemas(session: Awaited<ReturnType<typeof getUserSession>>, connectionId: string): { [dbName: string]: string } {
+	const all = session.get("schemas") as SessionSchemas | undefined;
+	return all && typeof all === "object" && all[connectionId] && typeof all[connectionId] === "object" ? all[connectionId] : {};
+}
+
+/**
+ * Remembers the schema to use for a database of a connection, returns the Set-Cookie header
+ */
+export async function setSessionSchema(request: Request, connectionId: string, dbName: string, schema: string) {
+	const session = await getUserSession(request);
+	const all = { ...((session.get("schemas") as SessionSchemas | undefined) || {}) };
+	all[connectionId] = { ...(all[connectionId] || {}), [dbName]: schema };
+	session.set("schemas", all);
+	return commitSession(session);
 }
 
 export async function getUserDbConnections(userId) {

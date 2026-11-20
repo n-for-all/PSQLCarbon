@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form } from "@remix-run/react";
+import { Form as RemixForm } from "@remix-run/react";
 import { ArrowRightIcon, CheckCircleFillIcon, SyncIcon } from "@primer/octicons-react";
 import { Button } from "~/ui/button";
 import { Input } from "~/ui/input";
@@ -10,13 +10,16 @@ interface AiSettingsFormProps {
     model: string | null | undefined;
     /** Every provider used before, with its model and a hint of its key */
     providers: ProviderSummary[];
+    /** The settings dialog posts through a fetcher so the page behind it stays (app/components/settings-dialog.tsx) */
+    form?: typeof RemixForm;
+    action?: string;
 }
 
 /**
  * Settings for any OpenAI compatible server, hosted (DeepSeek, OpenAI ...) or local (LM Studio, Ollama ...).
  * Each provider keeps its own key and model, switching between them brings those back.
  */
-export const AiSettingsForm = ({ baseUrl: savedBaseUrl, model: savedModel, providers }: AiSettingsFormProps) => {
+export const AiSettingsForm = ({ baseUrl: savedBaseUrl, model: savedModel, providers, form: Form = RemixForm, action }: AiSettingsFormProps) => {
     const [baseUrl, setBaseUrl] = useState(savedBaseUrl || "");
     const [model, setModel] = useState(savedModel || DEFAULT_AI_MODEL);
     const [apiKey, setApiKey] = useState("");
@@ -84,7 +87,7 @@ export const AiSettingsForm = ({ baseUrl: savedBaseUrl, model: savedModel, provi
                 </span>
             </div>
 
-            <Form method="post" autoComplete="off" className="flex flex-col gap-5">
+            <Form method="post" action={action} autoComplete="off" className="flex flex-col gap-5">
                 <input type="hidden" name="intent" value="update_ai_settings" />
                 <input type="hidden" name="openAiBaseUrl" value={baseUrl.trim()} />
                 <input type="hidden" name="openAiModel" value={model.trim()} />
@@ -151,7 +154,7 @@ export const AiSettingsForm = ({ baseUrl: savedBaseUrl, model: savedModel, provi
             </Form>
 
             {saved?.keyHint && (
-                <Form method="post" className="-mt-2">
+                <Form method="post" action={action} className="-mt-2">
                     <input type="hidden" name="intent" value="forget_ai_key" />
                     <input type="hidden" name="openAiBaseUrl" value={effectiveUrl} />
                     <button

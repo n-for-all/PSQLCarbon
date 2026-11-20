@@ -3,6 +3,9 @@ import { executeTool, listTables, NEEDS_APPROVAL, TOOL_DEFINITIONS, type ToolDis
 
 // Model calls per user message, each call can run several tools
 const MAX_STEPS = 25;
+// Small local models can call the same tool with the same arguments over and over, after this many repeats in one
+// request the run stops instead of using up every step
+const MAX_REPEATED_CALLS = 2;
 // Rough size of the history sent to the model, older turns are dropped first
 const MAX_HISTORY_CHARS = 150_000;
 
@@ -64,6 +67,12 @@ async function systemPrompt(options: AgentOptions) {
 		tables = `(could not list tables: ${error.message})`;
 	}
 
+	// The schema the user picked in the sidebar, the connection's search_path (app/lib/db.ts)
+	let currentSchema = "";
+	try {
+		currentSchema = (await options.resolvePool().pool.query("SELECT current_schema() AS schema")).rows[0]?.schema || "";
+	} catch {}
+
 	let databases: string[] = [];
 	try {
 		databases = await options.listDatabases();
@@ -89,6 +98,7 @@ When you show SQL to the user, put it in a \`\`\`sql code block. Use save_memory
 
 Tables in "${options.database}":
 ${tables || "(none)"}
+${currentSchema ? `The user is working in the "${currentSchema}" schema: unqualified table names resolve to it, and "the tables" means its tables unless they say otherwise.\n` : ""}
 ${
 	options.memories.length
 		? `\nThings you saved about this database earlier (memory id: content):\n${options.memories.map((memory) => `- ${memory.id}: ${memory.content}`).join("\n")}\n`
@@ -220,6 +230,26 @@ export function unansweredToolCalls(messages: ChatMessage[]) {
 }
 
 /**
+ * Whether a tool call with the same name and arguments already has a result since the latest user message
+ */
+export function isRepeatedCall(messages: ChatMessage[], call: ToolCall) {
+	const lastUser = messages.map((m) => m.role).lastIndexOf("user");
+	const normalize = (text: string) => {
+		try {
+			return JSON.stringify(JSON.parse(text || "{}"));
+		} catch {
+			return text;
+		}
+	};
+	const key = `${call.function.name}:${normalize(call.function.arguments)}`;
+	const turn = messages.slice(lastUser + 1);
+	const answered = new Set(turn.filter((m) => m.role === "tool").map((m) => m.tool_call_id));
+	return turn.some(
+		(m) => m.role === "assistant" && m.tool_calls?.some((earlier) => earlier.id !== call.id && answered.has(earlier.id) && `${earlier.function.name}:${normalize(earlier.function.arguments)}` === key)
+	);
+}
+
+/**
  * Runs the tool loop until the model answers without tools, a change needs the user's approval or the request is stopped
  */
 export async function runAgent(options: AgentOptions) {
@@ -231,10 +261,26 @@ export async function runAgent(options: AgentOptions) {
 	};
 
 	const system = await systemPrompt(options);
+	let repeatedCalls = 0;
 
 	for (let step = 0; step <= MAX_STEPS; step++) {
 		for (const call of unansweredToolCalls(messages)) {
 			if (options.signal?.aborted) return;
+
+			// The same call already ran for this request: its result is in the chat, so the model is pointed back to it
+			if (isRepeatedCall(messages, call)) {
+				repeatedCalls++;
+				await append({
+					role: "tool",
+					tool_call_id: call.id,
+					content: JSON.stringify({
+						error: `You already called ${call.function.name} with these arguments for this request and its result is above. Don't call it again: use that result, call a different tool (for example describe_table or run_query on specific tables) or give your answer.`,
+					}),
+					display: { tool: call.function.name, skipped: true, text: "Already done, skipped" },
+					createdAt: Date.now(),
+				});
+				continue;
+			}
 
 			let args: any = {};
 			try {
@@ -264,6 +310,13 @@ export async function runAgent(options: AgentOptions) {
 		const last = messages[messages.length - 1];
 		if (last?.role === "assistant" && !last.tool_calls?.length) return;
 		if (options.signal?.aborted) return;
+		if (repeatedCalls > MAX_REPEATED_CALLS) {
+			options.emit({
+				type: "error",
+				message: "Stopped: the assistant kept repeating the same step. Smaller models do this with broad requests, try a more specific question (one table or one problem) or a larger model.",
+			});
+			return;
+		}
 		if (step === MAX_STEPS) {
 			options.emit({ type: "error", message: `Stopped after ${MAX_STEPS} steps, send "continue" to let the assistant keep going.` });
 			return;

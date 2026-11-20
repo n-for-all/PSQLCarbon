@@ -148,7 +148,7 @@ export class Collection {
             const schemaRes = await this.pool.query(`
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_schema = 'public' AND table_name = $1
+                WHERE table_schema = current_schema() AND table_name = $1
                 ORDER BY ordinal_position;
             `, [this.collectionName]);
             if (schemaRes.rows.length > 0) {
@@ -186,7 +186,7 @@ export class Collection {
                 LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
                 LEFT JOIN pg_stat_user_tables S ON (S.relid = C.oid)
                 WHERE C.relname = $1
-                AND N.nspname NOT IN ('pg_catalog', 'information_schema');
+                AND N.nspname = current_schema();
             `, [this.collectionName]);
             if (statsRes.rows.length > 0) {
                 dbStats = statsRes.rows[0];
@@ -200,7 +200,7 @@ export class Collection {
             const indexRes = await this.pool.query(`
                 SELECT indexname as name, indexdef as definition
                 FROM pg_indexes
-                WHERE tablename = $1;
+                WHERE schemaname = current_schema() AND tablename = $1;
             `, [this.collectionName]);
             indexes = indexRes.rows;
         } catch (e) {
@@ -212,7 +212,7 @@ export class Collection {
             const structureRes = await this.pool.query(`
                 SELECT column_name as name, data_type as type, character_maximum_length as max_length, is_nullable, column_default as default_value
                 FROM information_schema.columns 
-                WHERE table_schema = 'public' AND table_name = $1
+                WHERE table_schema = current_schema() AND table_name = $1
                 ORDER BY ordinal_position;
             `, [this.collectionName]);
             structure = structureRes.rows;
@@ -269,7 +269,7 @@ export class Collection {
         const res = await this.pool.query(`
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_schema = 'public'
+            WHERE table_schema = current_schema()
             AND table_name   = $1;
         `, [this.collectionName]);
 

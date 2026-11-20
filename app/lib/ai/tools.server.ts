@@ -437,8 +437,9 @@ export async function executeTool(name: string, args: any, ctx: ToolContext): Pr
 			}
 			case "describe_table": {
 				if (typeof args?.table !== "string") return fail("table is required");
-				const schema = typeof args.schema === "string" && args.schema ? args.schema : "public";
 				const { pool, database } = target();
+				// Without a schema, the one the user works in (app/lib/db.ts)
+				const schema = typeof args.schema === "string" && args.schema ? args.schema : (await pool.query("SELECT current_schema() AS schema")).rows[0]?.schema || "public";
 				const description = { database, ...(await describeTable(pool, schema, args.table)) };
 				return {
 					content: resultsForModelSafe(description),

@@ -25,6 +25,8 @@ export interface DiagramRelation {
 
 export interface DiagramSchema {
     schema: string;
+    // The schema the rest of the app works in, only its tables open from the diagram
+    current?: string;
     schemas: { name: string; tables: number }[];
     tables: DiagramTable[];
     relations: DiagramRelation[];

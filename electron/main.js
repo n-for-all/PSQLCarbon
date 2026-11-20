@@ -57,7 +57,38 @@ function prepareEnv() {
 	process.env.DATABASE_URL = `file:${path.join(dataDir, "psqlcarbon.db")}`;
 	// The app server keeps a few small files here too, like the early access marker (app/lib/early-access.server.ts)
 	process.env.PSQLCARBON_DATA_DIR = dataDir;
+	// The MCP server (app/lib/mcp.server.ts, not in the App Store build): Claude Desktop starts electron/mcp-bridge.cjs
+	// with the app's own executable running as Node. It's kept outside the archive (asarUnpack) so Node can load it.
+	if (!process.mas) {
+		const bridge = app.isPackaged
+			? path.join(process.resourcesPath, "app.asar.unpacked", "electron", "mcp-bridge.cjs")
+			: path.join(root, "electron", "mcp-bridge.cjs");
+		process.env.PSQLCARBON_MCP_COMMAND = JSON.stringify({ command: process.execPath, args: [bridge], env: { ELECTRON_RUN_AS_NODE: "1" } });
+	}
 }
+
+/**
+ * Asks before an MCP client changes data or schema (app/lib/mcp.server.ts, write mode "ask")
+ */
+globalThis.__psqlcarbonConfirmMcp = async ({ client, connection, database, sql }) => {
+	const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+	if (parent) {
+		if (parent.isMinimized()) parent.restore();
+		parent.show();
+	}
+	app.focus({ steal: true });
+	const preview = sql.length > 1500 ? `${sql.slice(0, 1500)}\n…` : sql;
+	const options = {
+		type: "warning",
+		buttons: ["Run", "Don't Run"],
+		defaultId: 1,
+		cancelId: 1,
+		message: `${client} wants to change "${database}" on ${connection}`,
+		detail: preview,
+	};
+	const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
+	return response === 0;
+};
 
 /**
  * Applies prisma/migrations without the Prisma CLI, which is not shipped with the app

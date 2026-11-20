@@ -8,6 +8,7 @@ import { Input } from "~/ui/input";
 import { validatePassword } from "~/utils/functions";
 import { isDesktop, logout, requireUser, updatePassword } from "~/utils/session.server";
 import { useIsDesktop } from "~/utils/desktop";
+import { useGoBack } from "~/utils/go-back";
 import { userDb } from "~/utils/db.server";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/ui/tabs";
 import { AiSettingsForm } from "~/components/ai-settings-form";
@@ -118,6 +119,7 @@ export default function Dashboard() {
     const loaderData = useLoaderData<typeof loader>();
     const user = loaderData?.user;
     const navigate = useNavigate();
+    const goBack = useGoBack();
     // The desktop app has no login, so only the AI settings apply there
     const desktop = useIsDesktop();
 
@@ -142,8 +144,8 @@ export default function Dashboard() {
         <>
             <div className="w-full max-w-md mx-auto my-16">
                 <div className="mb-4">
-                    <Button variant="ghost" size="sm" icon={<ArrowLeftIcon />} onClick={() => navigate("/")}>
-                        Back to Homepage
+                    <Button variant="ghost" size="sm" icon={<ArrowLeftIcon />} onClick={goBack}>
+                        Back
                     </Button>
                 </div>
 

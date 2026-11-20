@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { PageLoadingBar } from "~/components/page-loading";
 
 import "./tailwind.css";
+import { ensureMcpServer } from "~/lib/mcp.server";
 
 export const links: LinksFunction = () => [
     { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -21,6 +22,8 @@ export const links: LinksFunction = () => [
 
 export const loader: LoaderFunction = async () => {
     const desktop = process.env.PSQLCARBON_DESKTOP === "1";
+    // The MCP server starts with the app when it's turned on, a no-op once it runs (app/lib/mcp.server.ts)
+    if (desktop) ensureMcpServer().catch((error) => console.error("The MCP server could not start", error));
     // The desktop app runs on the same machine as this server, so its platform is the server's.
     // The system is only shared there, for bug reports, a web server's isn't the visitor's business.
     const system = desktop ? `${{ darwin: "macOS", win32: "Windows", linux: "Linux" }[process.platform] || process.platform} (${os.type()} ${os.release()}, ${process.arch})` : null;

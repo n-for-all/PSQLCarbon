@@ -43,7 +43,8 @@ export class Database {
         const pool = this.connectionData.getPool(dbName);
         if (!pool) return Promise.reject(new Error("No database connection pool available"));
         
-        const res = await pool.query(`SELECT tablename FROM pg_catalog.pg_tables WHERE ${READABLE_TABLE};`);
+        // The tables of the schema in use (app/lib/db.ts)
+        const res = await pool.query(`SELECT tablename FROM pg_catalog.pg_tables WHERE ${READABLE_TABLE} AND schemaname = current_schema();`);
         return res.rows.map(row => ({ collectionName: row.tablename }));
     };
 
@@ -98,7 +99,7 @@ export class Database {
             FROM pg_class C
             LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
             LEFT JOIN pg_stat_user_tables S ON (S.relid = C.oid)
-            WHERE N.nspname NOT IN ('pg_catalog', 'information_schema')
+            WHERE N.nspname = current_schema()
             AND C.relkind = 'r'
             ORDER BY C.relname;
         `);
