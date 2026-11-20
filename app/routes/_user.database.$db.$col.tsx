@@ -763,11 +763,14 @@ export default function CollectionPage() {
                     </div>
                 </div>
                 <div className="p-4 mt-1 mb-1 border border-solid border-neutral-300">
-                    <div className="py-1">
-                        <span className="block text-base font-bold">Query</span>
-                        <span className="block mb-2 text-xs opacity-50">Please enter your query below</span>
-                    </div>
-                    <QueryLibrary database={routeParams.db} sql={jsonQueryString || ""} onLoad={(sql) => { setJsonQueryString(sql); setErrorJsonQueryString(""); }} refreshKey={fetcher.data} />
+                    <QueryLibrary
+                        title={
+                            <>
+                                <span className="block text-base font-bold">Query</span>
+                                <span className="block text-xs opacity-50">Please enter your query below</span>
+                            </>
+                        }
+                        database={routeParams.db} sql={jsonQueryString || ""} onLoad={(sql) => { setJsonQueryString(sql); setErrorJsonQueryString(""); }} refreshKey={fetcher.data} />
                     <div className="flex flex-col bg-white border border-neutral-200 min-h-36">
                         <div className="flex-1 overflow-auto">
                             <IdeWithAutocomplete

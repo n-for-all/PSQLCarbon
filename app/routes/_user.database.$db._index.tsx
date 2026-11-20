@@ -371,14 +371,17 @@ export default function DatabasePage() {
 
                 {/* ── Database-level Query Editor ── */}
                 <div className="p-4 mt-1 mb-4 border border-solid border-neutral-300">
-                    <div className="py-1">
-                        <span className="flex items-center gap-1 text-base font-bold">
-                            <Terminal size={15} />
-                            Query Editor
-                        </span>
-                        <span className="block mb-2 text-xs opacity-50">Run SQL queries against this database</span>
-                    </div>
-                    <QueryLibrary database={stats?.name} sql={sqlQuery} onLoad={setSqlQuery} refreshKey={queryFetcher.data} />
+                    <QueryLibrary
+                        title={
+                            <>
+                                <span className="flex items-center gap-1 text-base font-bold">
+                                    <Terminal size={15} />
+                                    Query Editor
+                                </span>
+                                <span className="block text-xs opacity-50">Run SQL queries against this database</span>
+                            </>
+                        }
+                        database={stats?.name} sql={sqlQuery} onLoad={setSqlQuery} refreshKey={queryFetcher.data} />
                     <div className="flex flex-col bg-white border border-neutral-200 min-h-36">
                         <div className="flex-1 overflow-auto">
                             <IdeWithAutocomplete

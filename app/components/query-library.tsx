@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BookmarkIcon, CheckCircleIcon, HistoryIcon, SearchIcon, TrashIcon, XCircleIcon } from "@primer/octicons-react";
 import { Button } from "~/ui/button";
 
@@ -27,6 +27,8 @@ interface QueryLibraryProps {
     /** Current editor SQL, used by Save */
     sql: string;
     onLoad: (sql: string) => void;
+    /** Shown on the left of the History / Saved buttons, on the same line */
+    title?: ReactNode;
     /** Changes after every run so an open history list refreshes */
     refreshKey?: unknown;
 }
@@ -44,7 +46,7 @@ const post = async (body: Record<string, unknown>) => {
     return data;
 };
 
-export const QueryLibrary = ({ database, sql, onLoad, refreshKey }: QueryLibraryProps) => {
+export const QueryLibrary = ({ database, sql, onLoad, refreshKey, title }: QueryLibraryProps) => {
     const [panel, setPanel] = useState<"history" | "saved" | "save" | null>(null);
     const [search, setSearch] = useState("");
     const [thisDatabase, setThisDatabase] = useState(true);
@@ -119,16 +121,19 @@ export const QueryLibrary = ({ database, sql, onLoad, refreshKey }: QueryLibrary
 
     return (
         <div className="mb-2">
-            <div className="flex items-center justify-end gap-1">
-                <button type="button" className={tabClass(panel === "history")} onClick={() => toggle("history")}>
-                    <HistoryIcon size={12} /> History
-                </button>
-                <button type="button" className={tabClass(panel === "saved")} onClick={() => toggle("saved")}>
-                    <BookmarkIcon size={12} /> Saved
-                </button>
-                <button type="button" className={tabClass(panel === "save")} onClick={() => toggle("save")} disabled={!sql.trim()} title={sql.trim() ? "Save the current query" : "Write a query to save it"}>
-                    + Save query
-                </button>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <div className="min-w-0">{title}</div>
+                <div className="flex items-center gap-1 ml-auto">
+                    <button type="button" className={tabClass(panel === "history")} onClick={() => toggle("history")}>
+                        <HistoryIcon size={12} /> History
+                    </button>
+                    <button type="button" className={tabClass(panel === "saved")} onClick={() => toggle("saved")}>
+                        <BookmarkIcon size={12} /> Saved
+                    </button>
+                    <button type="button" className={tabClass(panel === "save")} onClick={() => toggle("save")} disabled={!sql.trim()} title={sql.trim() ? "Save the current query" : "Write a query to save it"}>
+                        + Save query
+                    </button>
+                </div>
             </div>
 
             {message && <div className={`mt-1 px-2 py-1 text-xs ${message.type === "error" ? "text-red-700 bg-red-50" : "text-green-800 bg-green-50"}`}>{message.text}</div>}
