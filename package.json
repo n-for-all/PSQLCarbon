@@ -16,6 +16,7 @@
 		"dev:remix": "remix vite:dev",
 		"prisma": "prisma generate && prisma db push",
 		"lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
+		"update": "node scripts/update.mjs",
 		"start": "NODE_OPTIONS=--trace-warnings dotenv -- remix-serve ./build/server/index.js",
 		"typecheck": "tsc",
 		"preinstall": "echo \"Welcome to PSQL Carbon\"",
